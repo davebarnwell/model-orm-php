@@ -26,7 +26,9 @@ class Model
   // Class configuration
 
   public static $_db;  // all models inherit this db connection
-                      // but can overide in a sub-class by calling subClass::connectDB(...)
+                       // but can overide in a sub-class by calling subClass::connectDB(...)
+
+  protected static $_stmt = array(); // prepared statements cache
 
   protected static $_identifier_quote_character = null;  // character used to quote table & columns names
   protected static $_tableColumns = null;                // columns in database table populated dynamically
@@ -89,7 +91,7 @@ class Model
    * (table names, column names etc). This method can
    * also deal with dot-separated identifiers eg table.column
    */
-  protected function _quote_identifier($identifier) {
+  protected static function _quote_identifier($identifier) {
     $class = get_called_class();
     $parts = explode('.', $identifier);
     $parts = array_map(array($class, '_quote_identifier_part'), $parts);
@@ -101,7 +103,7 @@ class Model
    * part of an identifier, using the identifier quote
    * character specified in the config (or autodetected).
    */
-  protected function _quote_identifier_part($part) {
+  protected static function _quote_identifier_part($part) {
     if ($part === '*') {
       return $part;
     }
@@ -109,8 +111,7 @@ class Model
   }
 
   protected static function getFieldnames() {
-    $st = static::$_db->prepare("DESCRIBE `".static::$_tableName."`");
-    $st->execute();
+    $st = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
     static::$_tableColumns = $st->fetchAll(\PDO::FETCH_COLUMN);
   }
 
@@ -178,9 +179,7 @@ class Model
       $fieldname = substr($name,8); // remove find by
       $match = $arguments[0];
       if (is_array($match)) {
-        $csv = implode(',',$match);
-        echo "***passed array: $csv \n";
-        return static::fetchAllWhere(static::_quote_identifier($fieldname). ' IN (?)', array($csv));
+        return static::fetchAllWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).')', $match);
       } else {
         return static::fetchAllWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
       }
@@ -189,14 +188,17 @@ class Model
       $fieldname = substr($name,9); // remove find by
       $match = $arguments[0];
       if (is_array($match)) {
-        $csv = implode(',',$match);
-        echo "***passed array: $csv \n";
-        return static::countWhere(static::_quote_identifier($fieldname). ' IN (?)', array($csv));
+        return static::countWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).')', $match);
       } else {
         return static::countWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
       }
     }
     throw new Exception(__CLASS__.' not such static method['.$name.']');
+  }
+
+  // for a given array of params to be passed to an IN clause return a string placeholder
+  static public function createInClausePlaceholders($params) {
+    return implode(',', array_fill(0, count($params), '?'));  // ie. returns ? [, ?]...
   }
 
   /**
@@ -211,8 +213,7 @@ class Model
     if ($SQLfragment) {
       $SQLfragment = ' WHERE '.$SQLfragment;
     }
-    $st = static::$_db->prepare('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment);
-    $st->execute($params);
+    $st = static::execute('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment,$params);
     return $st->fetchColumn();
   }
 
@@ -229,8 +230,7 @@ class Model
     if ($SQLfragment) {
       $SQLfragment = ' WHERE '.$SQLfragment;
     }
-    $st = static::$_db->prepare('SELECT * FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment);
-    $st->execute($params);
+    $st = static::execute('SELECT * FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment,$params);
     // $st->debugDumpParams();
     $st->setFetchMode(\PDO::FETCH_CLASS, $class);
     return $st->fetchAll();
@@ -249,15 +249,14 @@ class Model
     if ($SQLfragment) {
       $SQLfragment = ' WHERE '.$SQLfragment;
     }
-    $st = static::$_db->prepare('SELECT * FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment.' LIMIT 1');
-    $st->execute($params);
+    $st = static::execute('SELECT * FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment.' LIMIT 1',$params);
     $st->setFetchMode(\PDO::FETCH_CLASS, $class);
     return $st->fetch();
   }
   
   static public function deleteById($id) {
-    $st = static::$_db->prepare('DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1');
-    $st->execute(
+    $st = static::execute(
+      'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1',
       array($id)
     );
   }
@@ -284,7 +283,7 @@ class Model
     $this->validate();
     $this->$pk = null; // ensure id is null
     $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString();
-    static::$_db->exec($query);
+    static::execute($query);
     $this->id = static::$_db->lastInsertId();
   }
 
@@ -294,10 +293,35 @@ class Model
     }
     $this->validate();
     $query = 'UPDATE '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString().' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1';
-    $st = static::$_db->prepare($query);
-    $st->execute(array(
-      $this->id
-    ));
+    $st = static::execute(
+      $query,
+      array(
+        $this->id
+      )
+    );
+  }
+  
+  /**
+   * do
+   * connivence function for setting preparing and running a database query
+   * which also uses the statement cache
+   *
+   * @param string $query database statement with parameter place holders as PDO driver
+   * @param array $params array of parameters to replace the placeholders in the statement
+   * @return statement handle
+   */
+  public static function execute($query,$params = array()) {
+    $st = static::_prepare($query);
+    $st->execute($params);
+    return $st;
+  }
+  
+  private static function _prepare($query) {
+    if (!isset(static::$_stmt[$query])) {
+      // cache prepared query if not seen before
+      static::$_stmt[$query] = static::$_db->prepare($query);
+    }
+    return static::$_stmt[$query];  // return cache copy
   }
   
   public function save() {
@@ -328,4 +352,5 @@ class Model
     return $sqlFragment;
   }
 }
+
 ?>
