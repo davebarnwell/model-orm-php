@@ -83,8 +83,10 @@ Find One Or All
 custom SQL after the WHERE keyword returning the first match or all matches
 
 fetch one Category object with a custom WHERE ... clause
+
     $cat = Category::fetchOneWhere('id = ? OR name = ?',array(1,'test'));
 
 fetch array of Category objects with a custom WHERE ... clause
+
     $cat = Category::fetchAllWhere('id = ? OR name = ?',array(1,'second test'));
 
