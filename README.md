@@ -63,6 +63,7 @@ OR
 
 dynamic field name finders
 ==========================
+
     Category::find_by_name('changed name'); // returns null or matching entry as a Category object
     Category::count_by_name(array('changed name','second test')); // counts records with names that match
 
@@ -75,6 +76,7 @@ First & last
 Arbitary Statements
 ===================
 run an arbitary statement returning a PDO statement handle to issue fetch etc... on
+
     $st = db\Model::execute('SELECT * FROM categoies WHERE id = ? AND id = ? AND id > ?', array(1,2,6));
 
 Find One Or All
@@ -83,8 +85,10 @@ Find One Or All
 custom SQL after the WHERE keyword returning the first match or all matches
 
 fetch one Category object with a custom WHERE ... clause
+
     $cat = Category::fetchOneWhere('id = ? OR name = ?',array(1,'test'));
 
 fetch array of Category objects with a custom WHERE ... clause
+
     $cat = Category::fetchAllWhere('id = ? OR name = ?',array(1,'second test'));
 
