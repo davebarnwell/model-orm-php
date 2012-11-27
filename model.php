@@ -26,12 +26,12 @@ class Model
   // Class configuration
 
   public static $_db;  // all models inherit this db connection
-                       // but can overide in a sub-class by calling subClass::connectDB(...)
+                       // but can overide in a sub-class by calling subClass::connectDB(...) sub class must also redeclare public static $_db;
 
   protected static $_stmt = array(); // prepared statements cache
 
   protected static $_identifier_quote_character = null;  // character used to quote table & columns names
-  protected static $_tableColumns = null;                // columns in database table populated dynamically
+  private static $_tableColumns = array();             // columns in database table populated dynamically
   // objects public members are created for each table columns dynamically
 
 
@@ -40,9 +40,7 @@ class Model
   protected static $_tableName = null;           // database table name
 
   function __construct(array $data = array()) {
-    if (static::$_tableColumns == null) {
-      static::getFieldnames();  // only called once first time an object is created
-    }
+    static::getFieldnames();  // only called once first time an object is created
     if (is_array($data)) {
       $this->hydrate($data);
     }
@@ -111,13 +109,17 @@ class Model
   }
 
   protected static function getFieldnames() {
-    $st = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
-    static::$_tableColumns = $st->fetchAll(\PDO::FETCH_COLUMN);
+    $class = get_called_class();
+    if (!isset(self::$_tableColumns[$class])) {
+      $st = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
+      self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN);
+    }
+    return self::$_tableColumns[$class];
   }
 
   // populate member vars if they are in $tableColumns
   public function hydrate($data) {
-    foreach(static::$_tableColumns as $fieldname) {
+    foreach(static::getFieldnames() as $fieldname) {
       if (isset($data[$fieldname])) {
         $this->$fieldname = $data[$fieldname];
       } else if (!isset($this->$fieldname)) { // PDO pre populates fields before calling the constructor, so dont null unless not set
@@ -128,18 +130,18 @@ class Model
   
   // set all public members to null
   public function clear() {
-    foreach(static::$_tableColumns as $fieldname) {
+    foreach(static::getFieldnames() as $fieldname) {
       $this->$fieldname = null;
     }
   }
 
   public function __sleep() {
-    return static::$_tableColumns;
+    return static::getFieldnames();
   }
 
   public function toArray() {
     $a = array();
-    foreach(static::$_tableColumns as $fieldname) {
+    foreach(static::getFieldnames() as $fieldname) {
       $a[$fieldname] = $this->$fieldname;
     }
     return $a;
@@ -274,10 +276,10 @@ class Model
   public function insert($autoTimestamp = true) {
     $pk = static::$_primary_column_name;
     $timeStr = gmdate( 'Y-m-d H:i:s');
-    if ($autoTimestamp && in_array('created_at',static::$_tableColumns)) {
+    if ($autoTimestamp && in_array('created_at',static::getFieldnames())) {
       $this->created_at = $timeStr;
     }
-    if ($autoTimestamp && in_array('updated_at',static::$_tableColumns)) {
+    if ($autoTimestamp && in_array('updated_at',static::getFieldnames())) {
       $this->updated_at = $timeStr;
     }
     $this->validate();
@@ -288,7 +290,7 @@ class Model
   }
 
   public function update($autoTimestamp = true) {
-    if ($autoTimestamp && in_array('updated_at',static::$_tableColumns)) {
+    if ($autoTimestamp && in_array('updated_at',static::getFieldnames())) {
       $this->updated_at = gmdate( 'Y-m-d H:i:s');
     }
     $this->validate();
@@ -336,7 +338,7 @@ class Model
     // escapes and builds mysql SET string returning false, empty string or `field` = 'val'[, `field` = 'val']...
     $sqlFragment = false;
     $fragments = array();
-    foreach(static::$_tableColumns as $field) {
+    foreach(static::getFieldnames() as $field) {
       if ($ignorePrimary && $field == static::$_primary_column_name) continue;
       if (isset($this->$field)) {
         if (empty($this->$field)) {
