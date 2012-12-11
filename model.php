@@ -195,7 +195,7 @@ class Model
         return static::countWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
       }
     }
-    throw new Exception(__CLASS__.' not such static method['.$name.']');
+    throw new \Exception(__CLASS__.' not such static method['.$name.']');
   }
 
   // for a given array of params to be passed to an IN clause return a string placeholder
