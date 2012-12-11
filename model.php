@@ -341,7 +341,7 @@ class Model
     foreach(static::getFieldnames() as $field) {
       if ($ignorePrimary && $field == static::$_primary_column_name) continue;
       if (isset($this->$field)) {
-        if (empty($this->$field)) {
+        if ($this->$field === null) {
           // if empty set to NULL
           $fragments[] = static::_quote_identifier($field).' = NULL';
         } else {
