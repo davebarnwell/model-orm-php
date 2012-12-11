@@ -202,6 +202,12 @@ class Model
   static public function createInClausePlaceholders($params) {
     return implode(',', array_fill(0, count($params), '?'));  // ie. returns ? [, ?]...
   }
+  
+  // returns number of rows in the table
+  static public function count() {
+    $st = static::execute('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName));
+    return $st->fetchColumn();
+  }
 
   /**
    * run a SELECT count(*) FROM WHERE ...
@@ -261,7 +267,17 @@ class Model
       'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1',
       array($id)
     );
+    return $st;
   }
+  
+  static public function deleteWhere($where,$params = array()) {
+    $st = static::execute(
+      'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.$where,
+      $params
+    );
+    return $st;
+  }
+
   
   // do any validation in this function called before update and insert
   // should throw errors on validation failure.
