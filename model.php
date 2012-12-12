@@ -267,7 +267,7 @@ class Model
       'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1',
       array($id)
     );
-    return $st;
+    return ($st->rowCount() == 1);
   }
   
   static public function deleteWhere($where,$params = array()) {
@@ -286,7 +286,7 @@ class Model
   }
   
   public function delete() {
-    self::deleteById($this->id);
+    return self::deleteById($this->id);
   }
   
   public function insert($autoTimestamp = true) {
@@ -301,8 +301,11 @@ class Model
     $this->validate();
     $this->$pk = null; // ensure id is null
     $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString();
-    static::execute($query);
-    $this->id = static::$_db->lastInsertId();
+    $st = static::execute($query);
+    if ($st->rowCount() == 1) {
+      $this->id = static::$_db->lastInsertId();
+    }
+    return ($st->rowCount() == 1);
   }
 
   public function update($autoTimestamp = true) {
@@ -317,6 +320,7 @@ class Model
         $this->id
       )
     );
+    return ($st->rowCount() == 1);
   }
   
   /**
@@ -344,9 +348,9 @@ class Model
   
   public function save() {
     if ($this->id) {
-      $this->update();
+      return $this->update();
     } else {
-      $this->insert();
+      return $this->insert();
     }
   }
   
