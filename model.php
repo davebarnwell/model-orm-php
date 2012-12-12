@@ -289,7 +289,7 @@ class Model
     return self::deleteById($this->id);
   }
   
-  public function insert($autoTimestamp = true) {
+  public function insert($autoTimestamp = true,$allowSetPrimaryKey = false) {
     $pk = static::$_primary_column_name;
     $timeStr = gmdate( 'Y-m-d H:i:s');
     if ($autoTimestamp && in_array('created_at',static::getFieldnames())) {
@@ -299,8 +299,10 @@ class Model
       $this->updated_at = $timeStr;
     }
     $this->validate();
-    $this->$pk = null; // ensure id is null
-    $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString();
+    if ($allowSetPrimaryKey !== true) {
+      $this->$pk = null; // ensure id is null
+    }
+    $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString(!$allowSetPrimaryKey);
     $st = static::execute($query);
     if ($st->rowCount() == 1) {
       $this->id = static::$_db->lastInsertId();
@@ -372,6 +374,11 @@ class Model
     }
     $sqlFragment = implode(", ",$fragments);
     return $sqlFragment;
+  }
+  
+  static function datetimeToMysqldatetime($dt) {
+    $dt = (is_string($dt)) ? strtotime($dt) : $dt;
+    return date('Y-m-d H:i:s',$dt);
   }
 }
 
