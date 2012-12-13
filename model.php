@@ -46,8 +46,18 @@ class Model
     }
   }
 
-  // set the db connection for the called class so that sub-classes can declare $db and have their own db connection if required
-  // params are as new PDO(...)
+  /**
+   * set the db connection for this and all sub-classes to use
+   * if a sub class overrides $_db it can have it's own db connection if required
+   * params are as new PDO(...)
+   * set PDO to throw exceptions on error
+   *
+   * @param string $dsn
+   * @param string $username
+   * @param string $password
+   * @param string $driverOptions
+   * @return void
+   */
   public static function connectDb($dsn, $username, $password, $driverOptions = array()) {
     static::$_db = new \PDO($dsn,$username,$password,$driverOptions);
     static::$_db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION); // Set Errorhandling to Exception
@@ -55,9 +65,11 @@ class Model
   }
 
   /**
-   * Detect and initialise the character used to quote identifiers
-   * (table names, column names etc).
-   */
+  * Detect and initialise the character used to quote identifiers
+  * (table names, column names etc).
+  *
+  * @return void
+  */
   public static function _setup_identifier_quote_character() {
     if (is_null(static::$_identifier_quote_character)) {
       static::$_identifier_quote_character = static::_detect_identifier_quote_character();
@@ -65,9 +77,11 @@ class Model
   }
 
   /**
-   * Return the correct character used to quote identifiers (table
-   * names, column names etc) by looking at the driver being used by PDO.
-   */
+  * Return the correct character used to quote identifiers (table
+  * names, column names etc) by looking at the driver being used by PDO.
+  *
+  * @return string
+  */
   protected static function _detect_identifier_quote_character() {
     switch(static::$_db->getAttribute(\PDO::ATTR_DRIVER_NAME)) {
       case 'pgsql':
@@ -85,10 +99,13 @@ class Model
   }
 
   /**
-   * Quote a string that is used as an identifier
-   * (table names, column names etc). This method can
-   * also deal with dot-separated identifiers eg table.column
-   */
+  * Quote a string that is used as an identifier
+  * (table names, column names etc). This method can
+  * also deal with dot-separated identifiers eg table.column
+  *
+  * @param string $part
+  * @return string
+  */
   protected static function _quote_identifier($identifier) {
     $class = get_called_class();
     $parts = explode('.', $identifier);
@@ -96,11 +113,15 @@ class Model
     return join('.', $parts);
   }
 
-  /**
-   * This method performs the actual quoting of a single
-   * part of an identifier, using the identifier quote
-   * character specified in the config (or autodetected).
-   */
+
+ /**
+  * This method performs the actual quoting of a single
+  * part of an identifier, using the identifier quote
+  * character specified in the config (or autodetected).
+  *
+  * @param string $part
+  * @return string
+  */
   protected static function _quote_identifier_part($part) {
     if ($part === '*') {
       return $part;
@@ -108,6 +129,11 @@ class Model
     return static::$_identifier_quote_character . $part . static::$_identifier_quote_character;
   }
 
+  /**
+   * Get and cache on first call the column names assocaited with the current table
+   *
+   * @return array of column names for the current table
+   */
   protected static function getFieldnames() {
     $class = get_called_class();
     if (!isset(self::$_tableColumns[$class])) {
@@ -117,7 +143,14 @@ class Model
     return self::$_tableColumns[$class];
   }
 
-  // populate member vars if they are in $tableColumns
+  /**
+   * Given an associative array of key value pairs
+   * set the corresponding member value if associated with a table column
+   * ignore keys which dont match a table column name
+   *
+   * @param associative array $data
+   * @return void
+   */
   public function hydrate($data) {
     foreach(static::getFieldnames() as $fieldname) {
       if (isset($data[$fieldname])) {
@@ -128,7 +161,11 @@ class Model
     }
   }
   
-  // set all public members to null
+  /**
+   * set all members to null that are associated with table columns
+   *
+   * @return void
+   */
   public function clear() {
     foreach(static::getFieldnames() as $fieldname) {
       $this->$fieldname = null;
@@ -147,33 +184,57 @@ class Model
     return $a;
   }
   
+  /**
+   * Get the record with the matching primary key
+   *
+   * @param string $id
+   * @return self::Object
+   */
   static public function getById($id) {
     return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name).' = ?',array($id));
   }
   
+  /**
+   * Get the first record in the table
+   *
+   * @return self::Object
+   */
   static public function first() {
     return static::fetchOneWhere('1=1 ORDER BY '.static::_quote_identifier(static::$_primary_column_name).' ASC');
   }
   
+  /**
+   * Get the last record in the table
+   *
+   * @return self::Object
+   */
   static public function last() {
     return static::fetchOneWhere('1=1 ORDER BY '.static::_quote_identifier(static::$_primary_column_name).' DESC');
   }
   
+  /**
+   * Find records with the matching primary key
+   *
+   * @param string $id
+   * @return array of objects for matching records
+   */
   static public function find($id) {
     $find_by_method = 'find_by_'.(static::$_primary_column_name);
     static::$find_by_method($id);
   }
 
-  // handles calls to non-existant static methods
-  // used to dynamically handle calls like
-  // find_by_name('tom')
-  // find_by_title('a great book')
-  // count_by_name('tom')
-  // count_by_title('a great book')
-  // etc...
-  //
-  // returns same as ::fetchAllWhere();
-  //
+  /**
+   * handles calls to non-existant static methods, used to implement dynamic finder and counters ie.
+   *  find_by_name('tom')
+   *  find_by_title('a great book')
+   *  count_by_name('tom')
+   *  count_by_title('a great book')
+   *
+   * @param string $name
+   * @param string $arguments
+   * @return same as ::fetchAllWhere() or ::countWhere()
+   * @author Dave Barnwell
+   */
   static public function __callStatic($name, $arguments) {
     // Note: value of $name is case sensitive.
     if (preg_match('/^find_by_/',$name) == 1) {
@@ -198,12 +259,21 @@ class Model
     throw new \Exception(__CLASS__.' not such static method['.$name.']');
   }
 
-  // for a given array of params to be passed to an IN clause return a string placeholder
+  /**
+   * for a given array of params to be passed to an IN clause return a string placeholder
+   *
+   * @param array $params
+   * @return string
+   */
   static public function createInClausePlaceholders($params) {
     return implode(',', array_fill(0, count($params), '?'));  // ie. returns ? [, ?]...
   }
   
-  // returns number of rows in the table
+  /**
+   * returns number of rows in the table
+   *
+   * @return int
+   */
   static public function count() {
     $st = static::execute('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName));
     return $st->fetchColumn();
@@ -262,6 +332,11 @@ class Model
     return $st->fetch();
   }
   
+  /**
+   * Delete a record by its primary key
+   *
+   * @return boolean indicating success
+   */
   static public function deleteById($id) {
     $st = static::execute(
       'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1',
@@ -270,6 +345,13 @@ class Model
     return ($st->rowCount() == 1);
   }
   
+  /**
+   * Delete records based on an SQL conditions
+   *
+   * @param string $where SQL fragment of conditions
+   * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+   * @return PDO statement handle
+   */
   static public function deleteWhere($where,$params = array()) {
     $st = static::execute(
       'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.$where,
@@ -278,17 +360,32 @@ class Model
     return $st;
   }
 
-  
-  // do any validation in this function called before update and insert
-  // should throw errors on validation failure.
+  /**
+   * Delete the current record
+   *
+   * @return boolean indicating success
+   */
+  public function delete() {
+    return self::deleteById($this->{static::$_primary_column_name});
+  }
+
+  /**
+   * do any validation in this function called before update and insert
+   * should throw errors on validation failure.
+   *
+   * @return boolean true or throws exception on error
+   */
   static public function validate() {
     return true;
   }
   
-  public function delete() {
-    return self::deleteById($this->id);
-  }
-  
+  /**
+   * insert a row into the database table, and update the primary key field with the one generated on insert
+   *
+   * @param boolean $autoTimestamp true by default will set updated_at & created_at fields if present
+   * @param string $allowSetPrimaryKey, if true include primary key field in insert (ie. you want to set it yourself)
+   * @return boolean indicating success
+   */
   public function insert($autoTimestamp = true,$allowSetPrimaryKey = false) {
     $pk = static::$_primary_column_name;
     $timeStr = gmdate( 'Y-m-d H:i:s');
@@ -305,11 +402,17 @@ class Model
     $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$this->setString(!$allowSetPrimaryKey);
     $st = static::execute($query);
     if ($st->rowCount() == 1) {
-      $this->id = static::$_db->lastInsertId();
+      $this->{static::$_primary_column_name} = static::$_db->lastInsertId();
     }
     return ($st->rowCount() == 1);
   }
 
+   /**
+    * update the current record
+    *
+    * @param boolean $autoTimestamp true by default will set updated_at field if present
+    * @return boolean indicating success
+    */
   public function update($autoTimestamp = true) {
     if ($autoTimestamp && in_array('updated_at',static::getFieldnames())) {
       $this->updated_at = gmdate( 'Y-m-d H:i:s');
@@ -319,27 +422,33 @@ class Model
     $st = static::execute(
       $query,
       array(
-        $this->id
+        $this->{static::$_primary_column_name}
       )
     );
     return ($st->rowCount() == 1);
   }
-  
+
   /**
-   * do
+   * execute
    * connivence function for setting preparing and running a database query
    * which also uses the statement cache
    *
    * @param string $query database statement with parameter place holders as PDO driver
    * @param array $params array of parameters to replace the placeholders in the statement
-   * @return statement handle
+   * @return PDO statement handle
    */
   public static function execute($query,$params = array()) {
     $st = static::_prepare($query);
     $st->execute($params);
     return $st;
   }
-  
+
+  /**
+   * prepare an SQL query via PDO
+   *
+   * @param string $query
+   * @return a PDO prepared statement
+   */
   private static function _prepare($query) {
     if (!isset(static::$_stmt[$query])) {
       // cache prepared query if not seen before
@@ -347,15 +456,28 @@ class Model
     }
     return static::$_stmt[$query];  // return cache copy
   }
-  
+
+  /**
+   * call update if primary key field is present, else call insert
+   *
+   * @return boolean indicating success
+   */
   public function save() {
-    if ($this->id) {
+    if ($this->{static::$_primary_column_name}) {
       return $this->update();
     } else {
       return $this->insert();
     }
   }
   
+  /**
+   * Create an SQL fragment to be used after the SET keyword in an SQL UPDATE
+   * escaping parameters as necessary.
+   * by default the primary key is not added to the SET string, but passing $ignorePrimary as false will add it
+   *
+   * @param boolean $ignorePrimary
+   * @return string
+   */
   protected function setString($ignorePrimary = true) {
     // escapes and builds mysql SET string returning false, empty string or `field` = 'val'[, `field` = 'val']...
     $sqlFragment = false;
@@ -376,6 +498,12 @@ class Model
     return $sqlFragment;
   }
   
+  /**
+   * convert a date string or timestamp into a string suitable for assigning to a SQl datetime or timestamp field
+   *
+   * @param string|int $dt a date string or a unix timestamp
+   * @return string
+   */
   static function datetimeToMysqldatetime($dt) {
     $dt = (is_string($dt)) ? strtotime($dt) : $dt;
     return date('Y-m-d H:i:s',$dt);
