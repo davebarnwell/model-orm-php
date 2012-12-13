@@ -55,26 +55,42 @@ explict `->insert()` and `->update()` methods are available, `->save()` is a wra
 
 All methods call `->validate()` before carrying out their operation, to do your own validation overide this method in your class and throw an Exception on validation error.
 
-Delete a record
-===============
+Find a single record by primary key
+===================================
+
+returns an object for the matching row
+
+    $cat = Category::getById(1);
+
+Delete a record(s)
+==================
 
 Via an instance method
 
-    $cat = Category::find_by_id(1);
+    $cat = Category::getById(1);
     $cat->delete();
 
 OR a Class method (primary key deletes only)
 
     Category::deleteById(1);
+    
+OR  all records matching a where clause
 
-dynamic field name finders
-==========================
+    Category::deleteAllWhere('name = ?',array('changed name'));
 
-    Category::find_by_name('changed name'); // returns null or matching entry as a Category object
-    Category::count_by_name(array('changed name','second test')); // counts records with names that match
+dynamic field name finders & counters
+=====================================
 
-First & last
-============
+Return an array of objects that match the name
+
+    Category::find_by_name('changed name');
+
+Return a count of records that match the name
+
+    Category::count_by_name(array('changed name','second test'));
+
+First, last & Count
+===================
 
 return the first record by ascending primary key as a Catgory object
 
@@ -83,6 +99,10 @@ return the first record by ascending primary key as a Catgory object
 return the last record in the table when sorted by ascending primary key as a Catgory object
 
     Category::last();
+
+return the number of rows in the table
+
+    Catgory::count();
 
 Arbitary Statements
 ===================

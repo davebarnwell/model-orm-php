@@ -232,7 +232,7 @@ class Model
    *
    * @param string $name
    * @param string $arguments
-   * @return same as ::fetchAllWhere() or ::countWhere()
+   * @return same as ::fetchAllWhere() or ::countAllWhere()
    * @author Dave Barnwell
    */
   static public function __callStatic($name, $arguments) {
@@ -251,9 +251,9 @@ class Model
       $fieldname = substr($name,9); // remove find by
       $match = $arguments[0];
       if (is_array($match)) {
-        return static::countWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).')', $match);
+        return static::countAllWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).')', $match);
       } else {
-        return static::countWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
+        return static::countAllWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
       }
     }
     throw new \Exception(__CLASS__.' not such static method['.$name.']');
@@ -287,7 +287,7 @@ class Model
    * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
    * @return integer count of rows matching conditions
    */
-  static public function countWhere($SQLfragment='',$params = array()) {
+  static public function countAllWhere($SQLfragment='',$params = array()) {
     if ($SQLfragment) {
       $SQLfragment = ' WHERE '.$SQLfragment;
     }
@@ -346,27 +346,27 @@ class Model
   }
   
   /**
-   * Delete records based on an SQL conditions
-   *
-   * @param string $where SQL fragment of conditions
-   * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
-   * @return PDO statement handle
-   */
-  static public function deleteWhere($where,$params = array()) {
-    $st = static::execute(
-      'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.$where,
-      $params
-    );
-    return $st;
-  }
-
-  /**
    * Delete the current record
    *
    * @return boolean indicating success
    */
   public function delete() {
     return self::deleteById($this->{static::$_primary_column_name});
+  }
+
+  /**
+   * Delete records based on an SQL conditions
+   *
+   * @param string $where SQL fragment of conditions
+   * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+   * @return PDO statement handle
+   */
+  static public function deleteAllWhere($where,$params = array()) {
+    $st = static::execute(
+      'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.$where,
+      $params
+    );
+    return $st;
   }
 
   /**
