@@ -6,7 +6,7 @@
 *  requires php >=5.3 as uses "Late Static Binding"
 *
 *    In your bootstrap
-*    db\Model::connectDb('mysql:dbname=test;host=127.0.0.1','testuser','testpassword');
+*    db\Model::connectDb('mysql:dbname=testdbname;host=127.0.0.1','testuser','testpassword');
 *
 *    Extend the model and your set to go
 *    class Category extends db\Model {
@@ -233,7 +233,6 @@ class Model
    * @param string $name
    * @param string $arguments
    * @return same as ::fetchAllWhere() or ::countAllWhere()
-   * @author Dave Barnwell
    */
   static public function __callStatic($name, $arguments) {
     // Note: value of $name is case sensitive.
