@@ -9,6 +9,7 @@ PHP Model class which provides, Requires PHP >= 5.3
 * dynamic counters on a database table
 * raw database queries with escaped parameters
 * helpers for finding one or more records returning rows as instances of the Model class
+* throws exception on query error
 
 Usage
 =====

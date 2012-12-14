@@ -3,7 +3,7 @@
 *  Model class which provides Data Mapping, CRUD, and finders on a database table uses PDO for data access
 *  table columns are auto detected and made available as public members of the class
 *  class members used to do the magic are preceeded with an underscore, becareful of column names starting with _ in your db
-*  requires php >=5.3 as uses "Late Static Binding"
+*  requires php >=5.3 as uses "Late Static Binding" and namespaces
 *
 *    In your bootstrap
 *    db\Model::connectDb('mysql:dbname=testdbname;host=127.0.0.1','testuser','testpassword');
@@ -11,7 +11,7 @@
 *    Extend the model and your set to go
 *    class Category extends db\Model {
 *      static protected $_tableName = 'categories';   // database table name
-*      static protected $_primary_column_name = 'id'; // primary key column name if not id
+*      //static protected $_primary_column_name = 'id'; // define this if your primary key column name is not id
 *
 *      // add other methods appropriate for your class
 *
