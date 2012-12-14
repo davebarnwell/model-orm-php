@@ -62,7 +62,7 @@ returns an object for the matching row
 
     $cat = Category::getById(1);
 
-Delete a record(s)
+Delete record(s)
 ==================
 
 Via an instance method
@@ -77,15 +77,28 @@ OR a Class method (primary key deletes only)
 OR  all records matching a where clause
 
     Category::deleteAllWhere('name = ?',array('changed name'));
+    
+OR  all records matching a where clause, specifying order and limits with more regular SQL
 
-dynamic field name finders & counters
+    Category::deleteAllWhere('name = ? ORDER BY name DESC LIMIT 2',array('changed name'));
+
+Dynamic field name finders & counters
 =====================================
 
 Return an array of objects that match the name
 
     Category::find_by_name('changed name');
 
+Return an array of objects that match the names
+
+    Category::find_by_name(array('changed name','second test'));
+
+
 Return a count of records that match the name
+
+    Category::count_by_name('changed name');
+
+Return a count of records that match a set of values
 
     Category::count_by_name(array('changed name','second test'));
 
@@ -123,4 +136,24 @@ fetch one Category object with a custom WHERE ... clause
 fetch array of Category objects with a custom WHERE ... clause
 
     $cat = Category::fetchAllWhere('id = ? OR name = ?',array(1,'second test'));
+    
+fetch array of Category objects, as above but this time getting the second one if it exists ordered by ascending name
 
+    $cat = Category::fetchAllWhere('id = ? OR name = ? ORDER BY name ASC LIMIT 1,1',array(1,'second test'));
+
+General SQL Helpers
+===================
+
+Generate placeholders for an IN clause
+
+    $params = array(1,2,3,4);
+    $placeholders = db\Model::createInClausePlaceholders($params);    // returns a string '?,?,?,?
+    Category::fetchAllWhere('id IN ('.$placeholders.')',$params);     // use use in a query
+
+Take a date string or unix datetime number and return a string that can be assigned to a TIMESTAMP or DATETIME field
+date strings are parsed into a unix date via PHPs incredibly flexible strtotime()
+
+    db\Model::datetimeToMysqldatetime('2012 Sept 13th 12:00');  // returns '2012-09-13 12:00:00'
+    db\Model::datetimeToMysqldatetime('next Monday');  // returns next monday midnight in the format 'YYYY-MM-DD HH:MM:SS'
+    db\Model::datetimeToMysqldatetime(gmdate());  // returns the current date time in the format 'YYYY-MM-DD HH:MM:SS'
+    
