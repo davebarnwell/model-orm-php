@@ -112,7 +112,7 @@ class Model
   * @return string
   */
   protected static function _detect_identifier_quote_character() {
-    switch(static::$_db->getAttribute(\PDO::ATTR_DRIVER_NAME)) {
+    switch(static::getDriverName()) {
       case 'pgsql':
       case 'sqlsrv':
       case 'dblib':
@@ -126,13 +126,25 @@ class Model
           return '`';
     }
   }
+  
+  /**
+   * return the driver name for the current database connection
+   *
+   * @return string (driver name as returned by PDO)
+   */
+  protected static function getDriverName() {
+    if (!static::$_db) {
+      throw new Exception('No database connection setup');
+    }
+    return static::$_db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+  }
 
   /**
   * Quote a string that is used as an identifier
   * (table names, column names etc). This method can
   * also deal with dot-separated identifiers eg table.column
   *
-  * @param string $part
+  * @param string $identifier
   * @return string
   */
   protected static function _quote_identifier($identifier) {
