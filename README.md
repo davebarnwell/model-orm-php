@@ -87,6 +87,14 @@ OR  all records matching a where clause, specifying order and limits with more r
 Dynamic field name finders & counters
 =====================================
 
+Return an object for the first matching the name
+
+    Category::findOne_by_name('changed name');
+
+Return an object for the first match from the names
+
+    Category::findOne_by_name(array('changed name','second test'));
+
 Return an array of objects that match the name
 
     Category::find_by_name('changed name');
@@ -95,6 +103,13 @@ Return an array of objects that match the names
 
     Category::find_by_name(array('changed name','second test'));
 
+Return the first record by ascending primary 'name' as a Catgory object
+
+    Category::first_by_name('john');  // can also pass an array of values to match
+
+Return the last record in the table when sorted by ascending 'name' as a Catgory object
+
+    Category::last_by_name('john');   // can also pass an array of values to match
 
 Return a count of records that match the name
 

@@ -286,6 +286,33 @@ class Model
       } else {
         return static::fetchAllWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
       }
+    } else if (preg_match('/^findOne_by_/',$name) == 1) {
+      // it's a findOne_by_{fieldname} dynamic method
+      $fieldname = substr($name,11); // remove findOne_by_
+      $match = $arguments[0];
+      if (is_array($match)) {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).')', $match);
+      } else {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' = ?', array($match));
+      }
+    } else if (preg_match('/^first_by_/',$name) == 1) {
+      // it's a first_by_{fieldname} dynamic method
+      $fieldname = substr($name,9); // remove first_by_
+      $match = $arguments[0];
+      if (is_array($match)) {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).') ORDER BY ' . static::_quote_identifier($fieldname). ' ASC', $match);
+      } else {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' = ? ORDER BY ' . static::_quote_identifier($fieldname). ' ASC', array($match));
+      }
+    } else if (preg_match('/^last_by_/',$name) == 1) {
+      // it's a last_by_{fieldname} dynamic method
+      $fieldname = substr($name,8); // remove last_by_
+      $match = $arguments[0];
+      if (is_array($match)) {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' IN ('.static::createInClausePlaceholders($match).') ORDER BY ' . static::_quote_identifier($fieldname). ' DESC', $match);
+      } else {
+        return static::fetchOneWhere(static::_quote_identifier($fieldname). ' = ? ORDER BY ' . static::_quote_identifier($fieldname). ' DESC', array($match));
+      }
     } else if (preg_match('/^count_by_/',$name) == 1) {
       // it's a count_by_{fieldname} dynamic method
       $fieldname = substr($name,9); // remove find by
