@@ -103,11 +103,11 @@ Return an array of objects that match the names
 
     Category::find_by_name(array('changed name','second test'));
 
-Return the first record by ascending primary 'name' as a Catgory object
+Return the first record by ascending field 'name' as a Catgory object
 
     Category::first_by_name('john');  // can also pass an array of values to match
 
-Return the last record in the table when sorted by ascending 'name' as a Catgory object
+Return the last record in the table when sorted by ascending field 'name' as a Catgory object
 
     Category::last_by_name('john');   // can also pass an array of values to match
 
