@@ -11,6 +11,7 @@ PHP Model class which provides
 * helpers for finding one or more records returning rows as instances of the Model class
 * throws exception on query error
 * Requires PHP >= 5.3
+* Currenlty only tested with MySQL through the PDO drivers
 
 Usage
 =====
