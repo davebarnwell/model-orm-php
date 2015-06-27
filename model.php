@@ -68,7 +68,7 @@ class Model
   protected static $_primary_column_name = 'id'; // primary key column
   protected static $_tableName = null;           // database table name
 
-  function __construct(array $data = array()) {
+  public function __construct(array $data = array()) {
     static::getFieldnames();  // only called once first time an object is created
     if (is_array($data)) {
       $this->hydrate($data);
