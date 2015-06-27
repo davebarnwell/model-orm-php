@@ -229,7 +229,7 @@ class Model
    * Get the record with the matching primary key
    *
    * @param string $id
-   * @return self::Object
+   * @return Object
    */
   static public function getById($id) {
     return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name) . ' = ?', array($id));
@@ -238,7 +238,7 @@ class Model
   /**
    * Get the first record in the table
    *
-   * @return self::Object
+   * @return Object
    */
   static public function first() {
     return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' ASC');
@@ -247,7 +247,7 @@ class Model
   /**
    * Get the last record in the table
    *
-   * @return self::Object
+   * @return Object
    */
   static public function last() {
     return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' DESC');
