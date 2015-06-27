@@ -516,7 +516,7 @@ class Model
    * @param string $query
    * @return a PDO prepared statement
    */
-  private static function _prepare($query) {
+  protected static function _prepare($query) {
     if (!isset(static::$_stmt[$query])) {
       // cache prepared query if not seen before
       static::$_stmt[$query] = static::$_db->prepare($query);
@@ -547,7 +547,6 @@ class Model
    */
   protected function setString($ignorePrimary = true) {
     // escapes and builds mysql SET string returning false, empty string or `field` = 'val'[, `field` = 'val']...
-    $sqlFragment = false;
     $fragments = array();
     foreach (static::getFieldnames() as $field) {
       if ($ignorePrimary && $field == static::$_primary_column_name) continue;
