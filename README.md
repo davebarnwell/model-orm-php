@@ -1,7 +1,7 @@
 Model
 =====
 
-[![Build Status](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/badges/build.png?b=master)](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/build-status/master) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/?branch=master)
+[![Build Status](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/badges/build.png?b=master)](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/build-status/master)
 
 PHP Model class which provides
 
