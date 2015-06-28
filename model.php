@@ -244,7 +244,7 @@ class Model
    *
    * @param string $name
    * @param string $arguments
-   * @return same as ::fetchAllWhere() or ::countAllWhere()
+   * @return mixed int|array|object
    */
   static public function __callStatic($name, $arguments) {
     // Note: value of $name is case sensitive.
@@ -364,7 +364,7 @@ class Model
    * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
    * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
    * @param bool $limitOne if true the first match will be returned
-   * @return array|object of objects of calling class
+   * @return mixed array|object of objects of calling class
    */
   static public function fetchWhere($SQLfragment = '', $params = array(),$limitOne=false) {
     $class = get_called_class();
