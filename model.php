@@ -49,6 +49,14 @@
 */
 namespace db;
 
+/**
+ * Model ORM 
+ *
+ * @property created_at optional datatime in table that will automatically get updated on insert
+ * @property updated_at optional datatime in table that will automatically get updated on insert/update
+ *
+ * @package default
+ */
 class Model
 {
 
@@ -450,7 +458,7 @@ class Model
    * insert a row into the database table, and update the primary key field with the one generated on insert
    *
    * @param boolean $autoTimestamp true by default will set updated_at & created_at fields if present
-   * @param string $allowSetPrimaryKey, if true include primary key field in insert (ie. you want to set it yourself)
+   * @param boolean $allowSetPrimaryKey, if true include primary key field in insert (ie. you want to set it yourself)
    * @return boolean indicating success
    */
   public function insert($autoTimestamp = true, $allowSetPrimaryKey = false) {
