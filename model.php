@@ -62,22 +62,22 @@ class Model
 
   // Class configuration
 
-  public static $_db;  // all models inherit this db connection
+  public static $_db; // all models inherit this db connection
                         // but can overide in a sub-class by calling subClass::connectDB(...) sub class must also redeclare public static $_db;
 
   protected static $_stmt = array(); // prepared statements cache
 
-  protected static $_identifier_quote_character = null;  // character used to quote table & columns names
-  private static $_tableColumns = array();             // columns in database table populated dynamically
+  protected static $_identifier_quote_character = null; // character used to quote table & columns names
+  private static $_tableColumns = array(); // columns in database table populated dynamically
   // objects public members are created for each table columns dynamically
 
 
   // ** OVERIDE THE FOLLOWING as appropriate in your sub-class
   protected static $_primary_column_name = 'id'; // primary key column
-  protected static $_tableName = null;           // database table name
+  protected static $_tableName = null; // database table name
 
   public function __construct(array $data = array()) {
-    static::getFieldnames();  // only called once first time an object is created
+    static::getFieldnames(); // only called once first time an object is created
     if (is_array($data)) {
       $this->hydrate($data);
     }
@@ -557,7 +557,9 @@ class Model
     // escapes and builds mysql SET string returning false, empty string or `field` = 'val'[, `field` = 'val']...
     $fragments = array();
     foreach (static::getFieldnames() as $field) {
-      if ($ignorePrimary && $field == static::$_primary_column_name) continue;
+      if ($ignorePrimary && $field == static::$_primary_column_name) {
+        continue;
+      }
       if (isset($this->$field)) {
         if ($this->$field === null) {
           // if empty set to NULL
