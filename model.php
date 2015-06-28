@@ -286,7 +286,7 @@ class Model
    * Internal function called from __callStatic
    *
    * @param string $fieldname 
-   * @param string|array $match 
+   * @param mixed $match string|array 
    * @param string $order ASC|DESC
    * @return object of calling class
    */
@@ -303,7 +303,7 @@ class Model
    * Internal function called from __callStatic
    *
    * @param string $fieldname 
-   * @param string|array $match 
+   * @param mixed $match string|array 
    * @return array of objects of calling class
    */
   public static function fetchAllWhereMatchingSingleField($fieldname,$match) {
