@@ -252,30 +252,22 @@ class Model
       // it's a find_by_{fieldname} dynamic method
       $fieldname = substr($name, 8); // remove find by
       $match = $arguments[0];
-      static::fetchAllWhereMatchingSingleField($fieldname,$match);
+      return static::fetchAllWhereMatchingSingleField($fieldname,$match);
     } else if (preg_match('/^findOne_by_/', $name) == 1) {
       // it's a findOne_by_{fieldname} dynamic method
       $fieldname = substr($name, 11); // remove findOne_by_
       $match = $arguments[0];
-      static::fetchAllWhereMatchingSingleField($fieldname,$match);
+      return static::fetchAllWhereMatchingSingleField($fieldname,$match);
     } else if (preg_match('/^first_by_/', $name) == 1) {
       // it's a first_by_{fieldname} dynamic method
       $fieldname = substr($name, 9); // remove first_by_
       $match = $arguments[0];
-      if (is_array($match)) {
-        return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' ASC', $match);
-      } else {
-        return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' = ? ORDER BY ' . static::_quote_identifier($fieldname) . ' ASC', array($match));
-      }
+      return static::fetchOneWhereMatchingSingleField($fieldname,$match,'ASC');
     } else if (preg_match('/^last_by_/', $name) == 1) {
       // it's a last_by_{fieldname} dynamic method
       $fieldname = substr($name, 8); // remove last_by_
       $match = $arguments[0];
-      if (is_array($match)) {
-        return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' DESC', $match);
-      } else {
-        return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' = ? ORDER BY ' . static::_quote_identifier($fieldname) . ' DESC', array($match));
-      }
+      return static::fetchOneWhereMatchingSingleField($fieldname,$match,'DESC');
     } else if (preg_match('/^count_by_/', $name) == 1) {
       // it's a count_by_{fieldname} dynamic method
       $fieldname = substr($name, 9); // remove find by
@@ -289,6 +281,24 @@ class Model
     throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
   }
   
+
+  /**
+   * Internal function called from __callStatic
+   *
+   * @param string $fieldname 
+   * @param string|array $match 
+   * @param string $order ASC|DESC
+   * @return object of calling class
+   */
+  public static function fetchOneWhereMatchingSingleField($fieldname,$match,$order) {
+    if (is_array($match)) {
+      return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, $match);
+    } else {
+      return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' = ? ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, array($match));
+    }
+  }
+
+
   /**
    * Internal function called from __callStatic
    *
