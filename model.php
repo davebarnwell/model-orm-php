@@ -580,7 +580,7 @@ class Model
    * @param string|int $dt a date string or a unix timestamp
    * @return string
    */
-  static function datetimeToMysqldatetime($dt) {
+  public static function datetimeToMysqldatetime($dt) {
     $dt = (is_string($dt)) ? strtotime($dt) : $dt;
     return date('Y-m-d H:i:s', $dt);
   }
