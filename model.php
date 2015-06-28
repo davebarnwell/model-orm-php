@@ -304,7 +304,7 @@ class Model
    * @return string
    */
   static public function createInClausePlaceholders($params) {
-    return implode(',', array_fill(0, count($params), '?')); // ie. returns ? [, ?]...
+    return implode(',', array_fill(0, count($params), '?'));
   }
   
   /**
