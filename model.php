@@ -294,7 +294,7 @@ class Model
    *
    * @param string $fieldname 
    * @param string|array $match 
-   * @return same as ::fetchAllWhere()
+   * @return array of objects of calling class
    */
   private static function doFetchAllWhereMatchingSingleField($fieldname,$match) {
     if (is_array($match)) {
