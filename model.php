@@ -25,7 +25,8 @@ class Model
   // Class configuration
 
   public static $_db; // all models inherit this db connection
-                        // but can overide in a sub-class by calling subClass::connectDB(...) sub class must also redeclare public static $_db;
+                      // but can overide in a sub-class by calling subClass::connectDB(...)
+                      // sub class must also redeclare public static $_db;
 
   protected static $_stmt = array(); // prepared statements cache
 
