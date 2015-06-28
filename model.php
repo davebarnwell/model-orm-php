@@ -252,12 +252,12 @@ class Model
       // it's a find_by_{fieldname} dynamic method
       $fieldname = substr($name, 8); // remove find by
       $match = $arguments[0];
-      static::doFetchAllWhereMatchingSingleField($fieldname,$match);
+      static::fetchAllWhereMatchingSingleField($fieldname,$match);
     } else if (preg_match('/^findOne_by_/', $name) == 1) {
       // it's a findOne_by_{fieldname} dynamic method
       $fieldname = substr($name, 11); // remove findOne_by_
       $match = $arguments[0];
-      static::doFetchAllWhereMatchingSingleField($fieldname,$match);
+      static::fetchAllWhereMatchingSingleField($fieldname,$match);
     } else if (preg_match('/^first_by_/', $name) == 1) {
       // it's a first_by_{fieldname} dynamic method
       $fieldname = substr($name, 9); // remove first_by_
@@ -296,7 +296,7 @@ class Model
    * @param string|array $match 
    * @return array of objects of calling class
    */
-  private static function doFetchAllWhereMatchingSingleField($fieldname,$match) {
+  public static function fetchAllWhereMatchingSingleField($fieldname,$match) {
     if (is_array($match)) {
       return static::fetchAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
     } else {
@@ -343,7 +343,7 @@ class Model
    * @param string $SQLfragment 
    * @return string
    */
-  static private function addWherePrefix($SQLfragment) {
+  static protected function addWherePrefix($SQLfragment) {
     return $SQLfragment ? ' WHERE ' . $SQLfragment : $SQLfragment;
   }
 
