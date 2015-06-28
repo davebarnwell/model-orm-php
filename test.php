@@ -1,23 +1,29 @@
 <?php
-// Assumes database
-//   CREATE DATABASE categorytest;
-//   CREATE TABLE `categories` (
-//     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-//     `name` varchar(120) DEFAULT NULL,
-//     `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-//     `created_at` timestamp NULL DEFAULT NULL,
-//     PRIMARY KEY (`id`)
-//   ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+/*
+  Assumes database
+   CREATE DATABASE categorytest;
+   CREATE TABLE `categories` (
+     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+     `name` varchar(120) DEFAULT NULL,
+     `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+     `created_at` timestamp NULL DEFAULT NULL,
+     PRIMARY KEY (`id`)
+   ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+*/
+
 require_once('model.php');
 db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1', 'root', '');
 
-// Assumes a database called categorytest exists
-// with a table like
-// @property int $id primary key
-// @property string $name category name
-// @property string $updated_at mysql datetime string
-// @property string $created_at mysql datetime string
-//
+/**
+ * Assumes a database called categorytest exists
+ * with a table like
+ * @property int $id primary key
+ * @property string $name category name
+ * @property string $updated_at mysql datetime string
+ * @property string $created_at mysql datetime string
+ *
+ * @package default
+ */
 class Category extends db\Model {
   static protected $_tableName = 'categories'; // database table name
 }
