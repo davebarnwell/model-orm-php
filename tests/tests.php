@@ -1,6 +1,6 @@
 <?php
-require_once(dirname(__DIR__).'/model.php');
-require_once(__DIR__.'/category.php');
+require_once(dirname(__DIR__) . '/model.php');
+require_once(__DIR__ . '/category.php');
 
 Class modelTest extends \PHPUnit_Framework_TestCase {
   
@@ -43,8 +43,8 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
 
         $category->save(); // no Id so will insert
         
-        $this->assertEquals($category->name,$_name);
-        $this->assertObjectHasAttribute('id',$category);
+        $this->assertEquals($category->name, $_name);
+        $this->assertObjectHasAttribute('id', $category);
         $this->assertNotEmpty($category->id);
         $this->assertNotEmpty($category->created_at);
         $this->assertNotEmpty($category->updated_at);
@@ -61,14 +61,14 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
 
         $category->save(); // no Id so will insert
         
-        $this->assertEquals($category->name,$_name);
-        $this->assertObjectHasAttribute('id',$category);
+        $this->assertEquals($category->name, $_name);
+        $this->assertObjectHasAttribute('id', $category);
         $this->assertNotEmpty($category->id);
         
         // read category back into a new object
         $read_category = Category::getById($category->id);
-        $this->assertEquals($read_category->name,$_name);
-        $this->assertEquals($read_category->id,$category->id);
+        $this->assertEquals($read_category->name, $_name);
+        $this->assertEquals($read_category->id, $category->id);
         $this->assertNotEmpty($category->created_at);
         $this->assertNotEmpty($category->updated_at);
     }
@@ -84,8 +84,8 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
 
         $category->save(); // no Id so will insert
         
-        $this->assertEquals($category->name,$_name);
-        $this->assertObjectHasAttribute('id',$category);
+        $this->assertEquals($category->name, $_name);
+        $this->assertObjectHasAttribute('id', $category);
         $this->assertNotEmpty($category->id);
         $this->assertNotEmpty($category->created_at);
         $this->assertNotEmpty($category->updated_at);
@@ -95,12 +95,12 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
         
         $_new_name = 'Literature - great works';
         $category->name = $_new_name;
-        sleep(1);   // to ensure updated_at time move forward a second at least
+        sleep(1); // to ensure updated_at time move forward a second at least
         $category->save();
 
-        $this->assertEquals($category->name,$_new_name);
-        $this->assertEquals($category->id,$_id);
-        $this->assertNotEquals($category->updated_at,$_updated_at);
+        $this->assertEquals($category->name, $_new_name);
+        $this->assertEquals($category->id, $_id);
+        $this->assertNotEquals($category->updated_at, $_updated_at);
         
     }
 
@@ -110,8 +110,8 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
      */
     public function testFetchAllWhere() {
         // Create some categories
-        $_names = ['Sports','Politics','Biography','Cookbooks'];
-        foreach($_names as $_name) {
+        $_names = ['Sports', 'Politics', 'Biography', 'Cookbooks'];
+        foreach ($_names as $_name) {
             $category = new Category(array(
               'name' => $_name
             ));
@@ -119,7 +119,7 @@ Class modelTest extends \PHPUnit_Framework_TestCase {
         }
         $categories = Category::find_by_name($_names);
         $this->assertNotEmpty($categories);
-        $this->assertContainsOnlyInstancesOf('Category',$categories);
-        $this->assertCount(count($_names),$categories);
+        $this->assertContainsOnlyInstancesOf('Category', $categories);
+        $this->assertCount(count($_names), $categories);
     }
 }
