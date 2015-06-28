@@ -318,7 +318,6 @@ class Model
   }
 
   /**
-   * run a SELECT count(*) FROM WHERE ...
    * returns an integer count of matching rows
    *
    * @param string $SQLfragment conditions, grouping to apply (to right of WHERE keyword)
@@ -346,7 +345,6 @@ class Model
       $SQLfragment = ' WHERE ' . $SQLfragment;
     }
     $st = static::execute('SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
-    // $st->debugDumpParams();
     $st->setFetchMode(\PDO::FETCH_CLASS, $class);
     return $st->fetchAll();
   }
