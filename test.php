@@ -13,10 +13,10 @@ db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1', 'root', '');
 
 // Assumes a database called categorytest exists
 // with a table like
-// @property int $id
-// @property string $name
-// @property string $updated_at
-// @property string $created_at
+// @property int $id primary key
+// @property string $name category name
+// @property string $updated_at mysql datetime string
+// @property string $created_at mysql datetime string
 //
 class Category extends db\Model {
   static protected $_tableName = 'categories'; // database table name
