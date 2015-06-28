@@ -257,7 +257,7 @@ class Model
       // it's a findOne_by_{fieldname} dynamic method
       $fieldname = substr($name, 11); // remove findOne_by_
       $match = $arguments[0];
-      return static::fetchAllWhereMatchingSingleField($fieldname, $match);
+      return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'ASC');
     } else if (preg_match('/^first_by_/', $name) == 1) {
       // it's a first_by_{fieldname} dynamic method
       $fieldname = substr($name, 9); // remove first_by_
