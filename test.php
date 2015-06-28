@@ -9,7 +9,7 @@
 //     PRIMARY KEY (`id`)
 //   ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 require_once('model.php');
-db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');
+db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1', 'root', '');
 
 // Assumes a database called categorytest exists
 // with a table like
@@ -40,7 +40,7 @@ try {
 
   echo "Fetch last object into a new Object\n";
   echo "===================================\n";
-  $category = Category::getById($newCategory->id);  // read  category into a new object
+  $category = Category::getById($newCategory->id); // read  category into a new object
   var_dump($category);
   echo "------------------------------------------------------\n\n";
   
