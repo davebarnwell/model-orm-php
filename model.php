@@ -357,6 +357,26 @@ class Model
     return $SQLfragment ? ' WHERE ' . $SQLfragment : $SQLfragment;
   }
 
+
+  /**
+   * returns an array of objects of the sub-class which match the conditions
+   *
+   * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
+   * @param array $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+   * @param bool $limitOne if true the first match will be returned
+   * @return array|object of objects of calling class
+   */
+  static public function fetchWhere($SQLfragment = '', $params = array(),$limitOne=false) {
+    $class = get_called_class();
+    $SQLfragment = self::addWherePrefix($SQLfragment);
+    $st = static::execute(
+      'SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . ($limitOne ? ' LIMIT 1' : ''),
+      $params
+    );
+    $st->setFetchMode(\PDO::FETCH_CLASS, $class);
+    return $limitOne ? $st->fetch() : $st->fetchAll();
+  }
+
   /**
    * returns an array of objects of the sub-class which match the conditions
    *
@@ -365,11 +385,7 @@ class Model
    * @return array of objects of calling class
    */
   static public function fetchAllWhere($SQLfragment = '', $params = array()) {
-    $class = get_called_class();
-    $SQLfragment = self::addWherePrefix($SQLfragment);
-    $st = static::execute('SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
-    $st->setFetchMode(\PDO::FETCH_CLASS, $class);
-    return $st->fetchAll();
+    return static::fetchWhere($SQLfragment,$params,false);
   }
   
   /**
@@ -380,11 +396,7 @@ class Model
    * @return an object of calling class
    */
   static public function fetchOneWhere($SQLfragment = '', $params = array()) {
-    $class = get_called_class();
-    $SQLfragment = self::addWherePrefix($SQLfragment);
-    $st = static::execute('SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . ' LIMIT 1', $params);
-    $st->setFetchMode(\PDO::FETCH_CLASS, $class);
-    return $st->fetch();
+    return static::fetchWhere($SQLfragment,$params,true);
   }
   
   /**
