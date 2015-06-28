@@ -332,11 +332,19 @@ class Model
    * @return integer count of rows matching conditions
    */
   static public function countAllWhere($SQLfragment = '', $params = array()) {
-    if ($SQLfragment) {
-      $SQLfragment = ' WHERE ' . $SQLfragment;
-    }
+    $SQLfragment = self::addWherePrefix($SQLfragment);
     $st = static::execute('SELECT COUNT(*) FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
     return $st->fetchColumn();
+  }
+
+  /**
+   * if $SQLfragment is not empty prefix with the WHERE keyword
+   *
+   * @param string $SQLfragment 
+   * @return string
+   */
+  static private function addWherePrefix($SQLfragment) {
+    return $SQLfragment ? ' WHERE ' . $SQLfragment : $SQLfragment;
   }
 
   /**
@@ -348,9 +356,7 @@ class Model
    */
   static public function fetchAllWhere($SQLfragment = '', $params = array()) {
     $class = get_called_class();
-    if ($SQLfragment) {
-      $SQLfragment = ' WHERE ' . $SQLfragment;
-    }
+    $SQLfragment = self::addWherePrefix($SQLfragment);
     $st = static::execute('SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
     $st->setFetchMode(\PDO::FETCH_CLASS, $class);
     return $st->fetchAll();
@@ -365,9 +371,7 @@ class Model
    */
   static public function fetchOneWhere($SQLfragment = '', $params = array()) {
     $class = get_called_class();
-    if ($SQLfragment) {
-      $SQLfragment = ' WHERE ' . $SQLfragment;
-    }
+    $SQLfragment = self::addWherePrefix($SQLfragment);
     $st = static::execute('SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . ' LIMIT 1', $params);
     $st->setFetchMode(\PDO::FETCH_CLASS, $class);
     return $st->fetch();
