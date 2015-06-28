@@ -281,9 +281,8 @@ class Model
     throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
   }
   
-
   /**
-   * Internal function called from __callStatic
+   * find one match based on a single field and match criteria
    *
    * @param string $fieldname 
    * @param mixed $match string|array 
@@ -300,7 +299,7 @@ class Model
 
 
   /**
-   * Internal function called from __callStatic
+   * find multiple matches based on a single field and match criteria
    *
    * @param string $fieldname 
    * @param mixed $match string|array 
