@@ -246,7 +246,8 @@ class Model
    * @param string $arguments
    * @return mixed int|array|object
    */
-  static public function __callStatic($name, $arguments) {
+  static public function __callStatic($name, $arguments) 
+  {
     // Note: value of $name is case sensitive.
     if (preg_match('/^find_by_/', $name) == 1) {
       // it's a find_by_{fieldname} dynamic method
@@ -289,7 +290,8 @@ class Model
    * @param string $order ASC|DESC
    * @return object of calling class
    */
-  public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order) {
+  public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order) 
+  {
     if (is_array($match)) {
       return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, $match);
     } else {
@@ -576,5 +578,3 @@ class Model
     return date('Y-m-d H:i:s', $dt);
   }
 }
-
-
