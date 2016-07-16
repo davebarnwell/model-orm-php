@@ -19,7 +19,6 @@ namespace Freshsauce\Model;
      *
      * @package default
      */
-use phpDocumentor\Reflection\Types\Object_;
 
 /**
  * Class Model
@@ -129,7 +128,7 @@ class Model
     /**
      * Mark the field as dirty, so it will be set in inserts and updates
      *
-     * @param $name
+     * @param string $name
      */
     public function markFieldDirty( $name ) {
         $this->dirty->$name = true; // field became dirty
@@ -138,7 +137,7 @@ class Model
     /**
      * Return true if filed is dirty else false
      *
-     * @param $name
+     * @param string $name
      * @return bool
      */
     public function isFieldDirty( $name ) {
@@ -442,9 +441,9 @@ class Model
     /**
      * find one match based on a single field and match criteria
      *
-     * @param string $fieldname
-     * @param mixed  $match string|array
-     * @param string $order ASC|DESC
+     * @param string       $fieldname
+     * @param string|array $match
+     * @param string       $order ASC|DESC
      * @return object of calling class
      */
     public static function fetchOneWhereMatchingSingleField( $fieldname, $match, $order ) {
@@ -459,8 +458,8 @@ class Model
     /**
      * find multiple matches based on a single field and match criteria
      *
-     * @param string $fieldname
-     * @param mixed  $match string|array
+     * @param string       $fieldname
+     * @param string|array $match
      * @return object[] of objects of calling class
      */
     public static function fetchAllWhereMatchingSingleField( $fieldname, $match ) {
@@ -488,7 +487,7 @@ class Model
      */
     static public function count() {
         $st = static::execute( 'SELECT COUNT(*) FROM ' . static::_quote_identifier( static::$_tableName ) );
-        return $st->fetchColumn();
+        return (int)$st->fetchColumn( 0 );
     }
 
     /**
@@ -501,7 +500,7 @@ class Model
     static public function countAllWhere( $SQLfragment = '', $params = array() ) {
         $SQLfragment = self::addWherePrefix( $SQLfragment );
         $st          = static::execute( 'SELECT COUNT(*) FROM ' . static::_quote_identifier( static::$_tableName ) . $SQLfragment, $params );
-        return $st->fetchColumn();
+        return (int)$st->fetchColumn( 0 );
     }
 
     /**
