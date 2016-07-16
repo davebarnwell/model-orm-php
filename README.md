@@ -29,8 +29,8 @@ With a mysql database as such on your localhost
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
-    require_once('model.php');
-    db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');    // db connection for all sub-classes
+    require_once('vendor/autoload.php');
+    Db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');    // db connection for all sub-classes
 
     // minimum model definition
     class Category extends db\Model {
