@@ -44,7 +44,7 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
      *
      */
     public static function tearDownAfterClass() {
-        //Freshsauce\Model\Model::execute( 'DROP DATABASE IF EXISTS `categorytest`' );
+        Freshsauce\Model\Model::execute( 'DROP DATABASE IF EXISTS `categorytest`' );
     }
 
     /**
