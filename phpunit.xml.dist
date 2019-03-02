@@ -8,7 +8,7 @@
         convertWarningsToExceptions="true"
         bootstrap="vendor/autoload.php">
     <testsuites>
-        <testsuite name="freshsauce/Db/Model Tests">
+        <testsuite name="Freshsauce/Model Tests">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

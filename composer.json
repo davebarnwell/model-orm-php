@@ -1,5 +1,5 @@
 {
-  "name": "freshsauce/Db/Model",
+  "name": "Freshsauce/Model",
   "type": "library",
   "description": "PHP Model class",
   "keywords": [
