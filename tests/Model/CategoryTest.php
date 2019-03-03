@@ -13,7 +13,7 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
     public static function setUpBeforeClass() {
         // connect and setup db categorytest with table categories
         try {
-            Freshsauce\Model\Model::connectDb('mysql:host=127.0.0.1;dbname=unit_test', 'unit_test_user', 'unit_test_password');
+            Freshsauce\Model\Model::connectDb('mysql:host=ut_db;dbname=unit_test', 'unit_test_user', 'unit_test_password');
         } catch (PDOException $e) {
             if ($e->getCode() != 0) {
                 // throw it on
