@@ -1,27 +1,29 @@
 <?php
+
 namespace Freshsauce\Model;
 
-    /**
-     * Model ORM
-     *
-     *
-     *  A simple database abstraction layer for PHP 5.3+ with very minor configuration required
-     *
-     * database table columns are auto detected and made available as public members of the class
-     * provides CRUD, dynamic counters/finders on a database table
-     * uses PDO for data access and exposes PDO if required
-     * class members used to do the magic are preceeded with an underscore, be careful of column names starting with _ in your database!
-     * requires php >=5.3 as uses "Late Static Binding" and namespaces
-     *
-     *
-     * @property string $created_at optional datatime in table that will automatically get updated on insert
-     * @property string $updated_at optional datatime in table that will automatically get updated on insert/update
-     *
-     * @package default
-     */
+/**
+ * Model ORM
+ *
+ *
+ *  A simple database abstraction layer for PHP 5.3+ with very minor configuration required
+ *
+ * database table columns are auto detected and made available as public members of the class
+ * provides CRUD, dynamic counters/finders on a database table
+ * uses PDO for data access and exposes PDO if required
+ * class members used to do the magic are preceeded with an underscore, be careful of column names starting with _ in your database!
+ * requires php >=5.3 as uses "Late Static Binding" and namespaces
+ *
+ *
+ * @property string $created_at optional datatime in table that will automatically get updated on insert
+ * @property string $updated_at optional datatime in table that will automatically get updated on insert/update
+ *
+ * @package default
+ */
 
 /**
  * Class Model
+ *
  * @package Freshsauce\Model
  */
 class Model
@@ -74,9 +76,11 @@ class Model
 
     /**
      * Model constructor.
+     *
      * @param array $data
      */
-    public function __construct($data = array()) {
+    public function __construct($data = array())
+    {
         static::getFieldnames(); // only called once first time an object is created
         $this->clearDirtyFields();
         if (is_array($data)) {
@@ -89,7 +93,8 @@ class Model
      *
      * @return bool
      */
-    public function hasData() {
+    public function hasData()
+    {
         return is_object($this->data);
     }
 
@@ -100,7 +105,8 @@ class Model
      * @return bool
      * @throws \Exception
      */
-    public function dataPresent() {
+    public function dataPresent()
+    {
         if (!$this->hasData()) {
             throw new \Exception('No data');
         }
@@ -117,7 +123,8 @@ class Model
      *
      * @return void
      */
-    public function __set($name, $value) {
+    public function __set($name, $value)
+    {
         if (!$this->hasData()) {
             $this->data = new \stdClass();
         }
@@ -130,7 +137,8 @@ class Model
      *
      * @param string $name
      */
-    public function markFieldDirty($name) {
+    public function markFieldDirty($name)
+    {
         $this->dirty->$name = true; // field became dirty
     }
 
@@ -138,16 +146,19 @@ class Model
      * Return true if filed is dirty else false
      *
      * @param string $name
+     *
      * @return bool
      */
-    public function isFieldDirty($name) {
+    public function isFieldDirty($name)
+    {
         return isset($this->dirty->$name) && ($this->dirty->$name == true);
     }
 
     /**
      * resets what fields have been considered dirty ie. been changed without being saved to the db
      */
-    public function clearDirtyFields() {
+    public function clearDirtyFields()
+    {
         $this->dirty = new \stdClass();
     }
 
@@ -160,7 +171,8 @@ class Model
      * @return mixed
      * @throws \Exception
      */
-    public function __get($name) {
+    public function __get($name)
+    {
         if (!$this->hasData()) {
             throw new \Exception("data property=$name has not been initialised", 1);
         }
@@ -171,9 +183,9 @@ class Model
 
         $trace = debug_backtrace();
         throw new \Exception(
-            'Undefined property via __get(): '.$name.
-            ' in '.$trace[0]['file'].
-            ' on line '.$trace[0]['line'],
+            'Undefined property via __get(): ' . $name .
+            ' in ' . $trace[0]['file'] .
+            ' on line ' . $trace[0]['line'],
             1
         );
     }
@@ -186,7 +198,8 @@ class Model
      *
      * @return bool
      */
-    public function __isset($name) {
+    public function __isset($name)
+    {
         if ($this->hasData() && property_exists($this->data, $name)) {
             return true;
         }
@@ -205,7 +218,8 @@ class Model
      * @param string $password
      * @param array  $driverOptions
      */
-    public static function connectDb($dsn, $username, $password, $driverOptions = array()) {
+    public static function connectDb($dsn, $username, $password, $driverOptions = array())
+    {
         static::$_db = new \PDO($dsn, $username, $password, $driverOptions);
         static::$_db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION); // Set Errorhandling to Exception
         static::_setup_identifier_quote_character();
@@ -217,7 +231,8 @@ class Model
      *
      * @return void
      */
-    public static function _setup_identifier_quote_character() {
+    public static function _setup_identifier_quote_character()
+    {
         if (is_null(static::$_identifier_quote_character)) {
             static::$_identifier_quote_character = static::_detect_identifier_quote_character();
         }
@@ -229,7 +244,8 @@ class Model
      *
      * @return string
      */
-    protected static function _detect_identifier_quote_character() {
+    protected static function _detect_identifier_quote_character()
+    {
         switch (static::getDriverName()) {
             case 'pgsql':
             case 'sqlsrv':
@@ -247,10 +263,12 @@ class Model
 
     /**
      * return the driver name for the current database connection
+     *
      * @return string
      * @throws \Exception
      */
-    protected static function getDriverName() {
+    protected static function getDriverName()
+    {
         if (!static::$_db) {
             throw new \Exception('No database connection setup');
         }
@@ -263,9 +281,11 @@ class Model
      * also deal with dot-separated identifiers eg table.column
      *
      * @param string $identifier
+     *
      * @return string
      */
-    protected static function _quote_identifier($identifier) {
+    protected static function _quote_identifier($identifier)
+    {
         $class = get_called_class();
         $parts = explode('.', $identifier);
         $parts = array_map(array(
@@ -282,13 +302,15 @@ class Model
      * character specified in the config (or autodetected).
      *
      * @param string $part
+     *
      * @return string
      */
-    protected static function _quote_identifier_part($part) {
+    protected static function _quote_identifier_part($part)
+    {
         if ($part === '*') {
             return $part;
         }
-        return static::$_identifier_quote_character.$part.static::$_identifier_quote_character;
+        return static::$_identifier_quote_character . $part . static::$_identifier_quote_character;
     }
 
     /**
@@ -296,10 +318,11 @@ class Model
      *
      * @return array of column names for the current table
      */
-    protected static function getFieldnames() {
+    protected static function getFieldnames()
+    {
         $class = get_called_class();
         if (!isset(self::$_tableColumns[$class])) {
-            $st                          = static::execute('DESCRIBE '.static::_quote_identifier(static::$_tableName));
+            $st                          = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
             self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN);
         }
         return self::$_tableColumns[$class];
@@ -312,7 +335,8 @@ class Model
      *
      * @return void
      */
-    public function hydrate($data) {
+    public function hydrate($data)
+    {
         foreach (static::getFieldnames() as $fieldname) {
             if (isset($data[$fieldname])) {
                 $this->$fieldname = $data[$fieldname];
@@ -327,7 +351,8 @@ class Model
      *
      * @return void
      */
-    public function clear() {
+    public function clear()
+    {
         foreach (static::getFieldnames() as $fieldname) {
             $this->$fieldname = null;
         }
@@ -337,14 +362,16 @@ class Model
     /**
      * @return array
      */
-    public function __sleep() {
+    public function __sleep()
+    {
         return static::getFieldnames();
     }
 
     /**
      * @return array
      */
-    public function toArray() {
+    public function toArray()
+    {
         $a = array();
         foreach (static::getFieldnames() as $fieldname) {
             $a[$fieldname] = $this->$fieldname;
@@ -356,10 +383,12 @@ class Model
      * Get the record with the matching primary key
      *
      * @param string $id
+     *
      * @return Object
      */
-    static public function getById($id) {
-        return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name).' = ?', array($id));
+    static public function getById($id)
+    {
+        return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name) . ' = ?', array($id));
     }
 
     /**
@@ -367,8 +396,9 @@ class Model
      *
      * @return Object
      */
-    static public function first() {
-        return static::fetchOneWhere('1=1 ORDER BY '.static::_quote_identifier(static::$_primary_column_name).' ASC');
+    static public function first()
+    {
+        return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' ASC');
     }
 
     /**
@@ -376,18 +406,21 @@ class Model
      *
      * @return Object
      */
-    static public function last() {
-        return static::fetchOneWhere('1=1 ORDER BY '.static::_quote_identifier(static::$_primary_column_name).' DESC');
+    static public function last()
+    {
+        return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' DESC');
     }
 
     /**
      * Find records with the matching primary key
      *
      * @param string $id
+     *
      * @return object[] of objects for matching records
      */
-    static public function find($id) {
-        $find_by_method = 'find_by_'.(static::$_primary_column_name);
+    static public function find($id)
+    {
+        $find_by_method = 'find_by_' . (static::$_primary_column_name);
         static::$find_by_method($id);
     }
 
@@ -400,10 +433,12 @@ class Model
      *
      * @param string $name
      * @param string $arguments
+     *
      * @return mixed int|object[]|object
      * @throws \Exception
      */
-    static public function __callStatic($name, $arguments) {
+    static public function __callStatic($name, $arguments)
+    {
         // Note: value of $name is case sensitive.
         if (preg_match('/^find_by_/', $name) == 1) {
             // it's a find_by_{fieldname} dynamic method
@@ -430,12 +465,12 @@ class Model
             $fieldname = substr($name, 9); // remove find by
             $match     = $arguments[0];
             if (is_array($match)) {
-                return static::countAllWhere(static::_quote_identifier($fieldname).' IN ('.static::createInClausePlaceholders($match).')', $match);
+                return static::countAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
             } else {
-                return static::countAllWhere(static::_quote_identifier($fieldname).' = ?', array($match));
+                return static::countAllWhere(static::_quote_identifier($fieldname) . ' = ?', array($match));
             }
         }
-        throw new \Exception(__CLASS__.' not such static method['.$name.']');
+        throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
     }
 
     /**
@@ -444,13 +479,15 @@ class Model
      * @param string       $fieldname
      * @param string|array $match
      * @param string       $order ASC|DESC
+     *
      * @return object of calling class
      */
-    public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order) {
+    public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order)
+    {
         if (is_array($match)) {
-            return static::fetchOneWhere(static::_quote_identifier($fieldname).' IN ('.static::createInClausePlaceholders($match).') ORDER BY '.static::_quote_identifier($fieldname).' '.$order, $match);
+            return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, $match);
         } else {
-            return static::fetchOneWhere(static::_quote_identifier($fieldname).' = ? ORDER BY '.static::_quote_identifier($fieldname).' '.$order, array($match));
+            return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' = ? ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, array($match));
         }
     }
 
@@ -460,13 +497,15 @@ class Model
      *
      * @param string       $fieldname
      * @param string|array $match
+     *
      * @return object[] of objects of calling class
      */
-    public static function fetchAllWhereMatchingSingleField($fieldname, $match) {
+    public static function fetchAllWhereMatchingSingleField($fieldname, $match)
+    {
         if (is_array($match)) {
-            return static::fetchAllWhere(static::_quote_identifier($fieldname).' IN ('.static::createInClausePlaceholders($match).')', $match);
+            return static::fetchAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
         } else {
-            return static::fetchAllWhere(static::_quote_identifier($fieldname).' = ?', array($match));
+            return static::fetchAllWhere(static::_quote_identifier($fieldname) . ' = ?', array($match));
         }
     }
 
@@ -474,9 +513,11 @@ class Model
      * for a given array of params to be passed to an IN clause return a string placeholder
      *
      * @param array $params
+     *
      * @return string
      */
-    static public function createInClausePlaceholders($params) {
+    static public function createInClausePlaceholders($params)
+    {
         return implode(',', array_fill(0, count($params), '?'));
     }
 
@@ -485,9 +526,10 @@ class Model
      *
      * @return int
      */
-    static public function count() {
-        $st = static::execute('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName));
-        return (int) $st->fetchColumn(0);
+    static public function count()
+    {
+        $st = static::execute('SELECT COUNT(*) FROM ' . static::_quote_identifier(static::$_tableName));
+        return (int)$st->fetchColumn(0);
     }
 
     /**
@@ -495,22 +537,26 @@ class Model
      *
      * @param string $SQLfragment conditions, grouping to apply (to right of WHERE keyword)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     *
      * @return integer count of rows matching conditions
      */
-    static public function countAllWhere($SQLfragment = '', $params = array()) {
+    static public function countAllWhere($SQLfragment = '', $params = array())
+    {
         $SQLfragment = self::addWherePrefix($SQLfragment);
-        $st          = static::execute('SELECT COUNT(*) FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment, $params);
-        return (int) $st->fetchColumn(0);
+        $st          = static::execute('SELECT COUNT(*) FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
+        return (int)$st->fetchColumn(0);
     }
 
     /**
      * if $SQLfragment is not empty prefix with the WHERE keyword
      *
      * @param string $SQLfragment
+     *
      * @return string
      */
-    static protected function addWherePrefix($SQLfragment) {
-        return $SQLfragment ? ' WHERE '.$SQLfragment : $SQLfragment;
+    static protected function addWherePrefix($SQLfragment)
+    {
+        return $SQLfragment ? ' WHERE ' . $SQLfragment : $SQLfragment;
     }
 
 
@@ -520,13 +566,15 @@ class Model
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      * @param bool   $limitOne    if true the first match will be returned
+     *
      * @return mixed object[]|object of objects of calling class
      */
-    static public function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false) {
+    static public function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false)
+    {
         $class       = get_called_class();
         $SQLfragment = self::addWherePrefix($SQLfragment);
         $st          = static::execute(
-            'SELECT * FROM '.static::_quote_identifier(static::$_tableName).$SQLfragment.($limitOne ? ' LIMIT 1' : ''),
+            'SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . ($limitOne ? ' LIMIT 1' : ''),
             $params
         );
         $st->setFetchMode(\PDO::FETCH_ASSOC);
@@ -545,9 +593,11 @@ class Model
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     *
      * @return object[] of objects of calling class
      */
-    static public function fetchAllWhere($SQLfragment = '', $params = array()) {
+    static public function fetchAllWhere($SQLfragment = '', $params = array())
+    {
         return static::fetchWhere($SQLfragment, $params, false);
     }
 
@@ -556,9 +606,11 @@ class Model
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     *
      * @return object of calling class
      */
-    static public function fetchOneWhere($SQLfragment = '', $params = array()) {
+    static public function fetchOneWhere($SQLfragment = '', $params = array())
+    {
         return static::fetchWhere($SQLfragment, $params, true);
     }
 
@@ -567,9 +619,10 @@ class Model
      *
      * @return boolean indicating success
      */
-    static public function deleteById($id) {
+    static public function deleteById($id)
+    {
         $st = static::execute(
-            'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1',
+            'DELETE FROM ' . static::_quote_identifier(static::$_tableName) . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ? LIMIT 1',
             array($id)
         );
         return ($st->rowCount() == 1);
@@ -580,8 +633,9 @@ class Model
      *
      * @return boolean indicating success
      */
-    public function delete() {
-        return self::deleteById($this->{static::$_primary_column_name} );
+    public function delete()
+    {
+        return self::deleteById($this->{static::$_primary_column_name});
     }
 
     /**
@@ -589,11 +643,13 @@ class Model
      *
      * @param string $where  SQL fragment of conditions
      * @param array  $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     *
      * @return \PDOStatement
      */
-    static public function deleteAllWhere($where, $params = array()) {
+    static public function deleteAllWhere($where, $params = array())
+    {
         $st = static::execute(
-            'DELETE FROM '.static::_quote_identifier(static::$_tableName).' WHERE '.$where,
+            'DELETE FROM ' . static::_quote_identifier(static::$_tableName) . ' WHERE ' . $where,
             $params
         );
         return $st;
@@ -605,7 +661,8 @@ class Model
      *
      * @return boolean true or throws exception on error
      */
-    static public function validate() {
+    static public function validate()
+    {
         return true;
     }
 
@@ -614,9 +671,11 @@ class Model
      *
      * @param boolean $autoTimestamp      true by default will set updated_at & created_at fields if present
      * @param boolean $allowSetPrimaryKey if true include primary key field in insert (ie. you want to set it yourself)
+     *
      * @return boolean indicating success
      */
-    public function insert($autoTimestamp = true, $allowSetPrimaryKey = false) {
+    public function insert($autoTimestamp = true, $allowSetPrimaryKey = false)
+    {
         $pk      = static::$_primary_column_name;
         $timeStr = gmdate('Y-m-d H:i:s');
         if ($autoTimestamp && in_array('created_at', static::getFieldnames())) {
@@ -630,7 +689,7 @@ class Model
             $this->$pk = null; // ensure id is null
         }
         $set   = $this->setString(!$allowSetPrimaryKey);
-        $query = 'INSERT INTO '.static::_quote_identifier(static::$_tableName).' SET '.$set['sql'];
+        $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'];
         $st    = static::execute($query, $set['params']);
         if ($st->rowCount() == 1) {
             $this->{static::$_primary_column_name} = static::$_db->lastInsertId();
@@ -643,15 +702,17 @@ class Model
      * update the current record
      *
      * @param boolean $autoTimestamp true by default will set updated_at field if present
+     *
      * @return boolean indicating success
      */
-    public function update($autoTimestamp = true) {
+    public function update($autoTimestamp = true)
+    {
         if ($autoTimestamp && in_array('updated_at', static::getFieldnames())) {
             $this->updated_at = gmdate('Y-m-d H:i:s');
         }
         $this->validate();
         $set             = $this->setString();
-        $query           = 'UPDATE '.static::_quote_identifier(static::$_tableName).' SET '.$set['sql'].' WHERE '.static::_quote_identifier(static::$_primary_column_name).' = ? LIMIT 1';
+        $query           = 'UPDATE ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'] . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ? LIMIT 1';
         $set['params'][] = $this->{static::$_primary_column_name};
         $st              = static::execute(
             $query,
@@ -670,9 +731,11 @@ class Model
      *
      * @param string $query  database statement with parameter place holders as PDO driver
      * @param array  $params array of parameters to replace the placeholders in the statement
+     *
      * @return \PDOStatement handle
      */
-    public static function execute($query, $params = array()) {
+    public static function execute($query, $params = array())
+    {
         $st = static::_prepare($query);
         $st->execute($params);
         return $st;
@@ -682,9 +745,11 @@ class Model
      * prepare an SQL query via PDO
      *
      * @param string $query
+     *
      * @return \PDOStatement
      */
-    protected static function _prepare($query) {
+    protected static function _prepare($query)
+    {
         if (!isset(static::$_stmt[$query])) {
             // cache prepared query if not seen before
             static::$_stmt[$query] = static::$_db->prepare($query);
@@ -697,7 +762,8 @@ class Model
      *
      * @return boolean indicating success
      */
-    public function save() {
+    public function save()
+    {
         if ($this->{static::$_primary_column_name}) {
             return $this->update();
         } else {
@@ -711,9 +777,11 @@ class Model
      * by default the primary key is not added to the SET string, but passing $ignorePrimary as false will add it
      *
      * @param boolean $ignorePrimary
-     * @return string[string] ['sql' => string, 'params' => mixed[] ]
+     *
+     * @return array ['sql' => string, 'params' => mixed[] ]
      */
-    protected function setString($ignorePrimary = true) {
+    protected function setString($ignorePrimary = true)
+    {
         // escapes and builds mysql SET string returning false, empty string or `field` = 'val'[, `field` = 'val']...
         /**
          * @var array $fragments individual SQL assignments
@@ -730,10 +798,10 @@ class Model
             if (isset($this->$field) && $this->isFieldDirty($field)) { // Only if dirty
                 if ($this->$field === null) {
                     // if empty set to NULL
-                    $fragments[] = static::_quote_identifier($field).' = NULL';
+                    $fragments[] = static::_quote_identifier($field) . ' = NULL';
                 } else {
                     // Just set value normally as not empty string with NULL allowed
-                    $fragments[] = static::_quote_identifier($field).' = ?';
+                    $fragments[] = static::_quote_identifier($field) . ' = ?';
                     $params[]    = $this->$field;
                 }
             }
@@ -748,10 +816,12 @@ class Model
     /**
      * convert a date string or timestamp into a string suitable for assigning to a SQl datetime or timestamp field
      *
-     * @param string|int $dt a date string or a unix timestamp
+     * @param mixed $dt a date string or a unix timestamp
+     *
      * @return string
      */
-    public static function datetimeToMysqldatetime($dt) {
+    public static function datetimeToMysqldatetime($dt)
+    {
         $dt = (is_string($dt)) ? strtotime($dt) : $dt;
         return date('Y-m-d H:i:s', $dt);
     }

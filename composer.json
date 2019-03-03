@@ -22,6 +22,8 @@
     "issues": "https://github.com/freshsauce/model-orm-php/issues"
   },
   "require": {
+    "ext-pdo": "*",
+    "php" : ">=5.4"
   },
   "autoload": {
     "psr-4": {
