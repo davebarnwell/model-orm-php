@@ -217,6 +217,8 @@ class Model
      * @param string $username
      * @param string $password
      * @param array  $driverOptions
+     *
+     * @throws \Exception
      */
     public static function connectDb($dsn, $username, $password, $driverOptions = array())
     {
@@ -230,6 +232,7 @@ class Model
      * (table names, column names etc).
      *
      * @return void
+     * @throws \Exception
      */
     public static function _setup_identifier_quote_character()
     {
@@ -243,6 +246,7 @@ class Model
      * names, column names etc) by looking at the driver being used by PDO.
      *
      * @return string
+     * @throws \Exception
      */
     protected static function _detect_identifier_quote_character()
     {
@@ -579,11 +583,15 @@ class Model
         );
         $st->setFetchMode(\PDO::FETCH_ASSOC);
         if ($limitOne) {
-            return new $class($st->fetch());
+            $instance = new $class($st->fetch());
+            $instance->clearDirtyFields();
+            return $instance;
         }
         $results = [];
-        while($row = $st->fetch()) {
-            $results[] = new $class($row);
+        while ($row = $st->fetch()) {
+            $instance = new $class($row);
+            $instance->clearDirtyFields();
+            $results[] = $instance;
         }
         return $results;
     }
