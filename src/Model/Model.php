@@ -582,7 +582,7 @@ class Model
             return new $class($st->fetch());
         }
         $results = [];
-        foreach ($st->fetch() as $row) {
+        while($row = $st->fetch()) {
             $results[] = new $class($row);
         }
         return $results;
