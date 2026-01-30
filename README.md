@@ -155,6 +155,12 @@ Return an object for the first matching the name
 Category::findOne_by_name('changed name');
 ```
 
+CamelCase alternatives are also supported:
+
+```php
+Category::findOneByName('changed name');
+```
+
 Return an object for the first match from the names
 
 ```php
@@ -165,6 +171,10 @@ Return an array of objects that match the name
 
 ```php
 Category::find_by_name('changed name');
+```
+
+```php
+Category::findByName('changed name');
 ```
 
 Return an array of objects that match the names
