@@ -1,201 +1,275 @@
-Model
-=====
+Model ORM
+=========
 
 [![Build Status](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/badges/build.png?b=master)](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/build-status/master)
 
-PHP Model class which provides
+PHP Model class which provides:
 
-* table column/property mapping,
-* CRUD
-* dynamic finders on a database table
-* dynamic counters on a database table
-* raw database queries with escaped parameters
-* helpers for finding one or more records returning rows as instances of the Model class
-* throws exception on query error
-* Requires PHP >= 8.3
-* Supports MySQL/MariaDB and PostgreSQL via PDO
+* table column/property mapping
+* CRUD operations
+* dynamic finders and counters
+* raw queries with escaped parameters
+* results as instances of the Model class
+* exceptions on query error
+
+Requirements & support
+----------------------
+
+* PHP >= 8.3
+* PDO with MySQL/MariaDB or PostgreSQL drivers
+* SQLite is supported in code paths but not covered by tests
 
 Usage
 =====
 
-With a MySQL database as such on your localhost
+With a MySQL database on localhost:
 
-    CREATE DATABASE categorytest;
-    CREATE TABLE `categories` (
-      `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-      `name` varchar(120) DEFAULT NULL,
-      `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-      `created_at` timestamp NULL DEFAULT NULL,
-      PRIMARY KEY (`id`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+```sql
+CREATE DATABASE categorytest;
+CREATE TABLE `categories` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+```
 
-    require_once('vendor/autoload.php');
-    Freshsauce\Model\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');    // db connection for all sub-classes
+```php
+require_once('vendor/autoload.php');
+Freshsauce\Model\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1', 'root', '');
 
-    // minimum model definition
-    class Category extends Freshsauce\Model\Model {
-      static protected $_tableName = 'categories'; // database table name
-    }
+// minimum model definition
+class Category extends Freshsauce\Model\Model {
+  static protected $_tableName = 'categories';
+}
+```
 
-PostgreSQL example schema and connection
+PostgreSQL schema and connection:
 
-    CREATE TABLE categories (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(120) NULL,
-      updated_at TIMESTAMP NULL,
-      created_at TIMESTAMP NULL
-    );
+```sql
+CREATE TABLE categories (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(120) NULL,
+  updated_at TIMESTAMP NULL,
+  created_at TIMESTAMP NULL
+);
+```
 
-    Freshsauce\Model\Model::connectDb('pgsql:host=127.0.0.1;port=5432;dbname=categorytest','postgres','postgres');
+```php
+Freshsauce\Model\Model::connectDb('pgsql:host=127.0.0.1;port=5432;dbname=categorytest', 'postgres', 'postgres');
+```
 
 Testing
 =======
 
 Run PHPUnit with optional environment overrides for the DB connection:
 
-    MODEL_ORM_TEST_DSN=mysql:host=127.0.0.1;port=3306
-    MODEL_ORM_TEST_USER=root
-    MODEL_ORM_TEST_PASS=
+```
+MODEL_ORM_TEST_DSN=mysql:host=127.0.0.1;port=3306
+MODEL_ORM_TEST_USER=root
+MODEL_ORM_TEST_PASS=
 
-    vendor/bin/phpunit -c phpunit.xml.dist
+vendor/bin/phpunit -c phpunit.xml.dist
+```
+
+Static analysis:
+
+```
+vendor/bin/phpstan analyse -c phpstan.neon
+```
 
 Save & Update records
 =====================
 
-    $newCategory = new Category(array(
-      'name' => 'test'
-    ));
-    $newCategory->save();
+```php
+$newCategory = new Category(array(
+  'name' => 'test'
+));
+$newCategory->save();
+```
 
 as Id is not set inserts the data as a new table row, `$newCategory->id` is set that of the row inserted post insert
 
-    $newCategory->name = 'changed name';
-    $newCategory->save();
+```php
+$newCategory->name = 'changed name';
+$newCategory->save();
+```
 
-now updates existing record
+Now updates existing record
 
-    new Category(array(
-      'name' => 'second test'
-    ))->save();
-    
-explict `->insert()` and `->update()` methods are available, `->save()` is a wrapper around these
+```php
+new Category(array(
+  'name' => 'second test'
+))->save();
+```
 
-All methods call `->validate()` before carrying out their operation, to do your own validation overide this method in your class and throw an Exception on validation error.
+Explicit `->insert()` and `->update()` methods are available. `->save()` is a wrapper around these.
+If no dirty fields are present, `insert()` uses DEFAULT VALUES and `update()` returns false.
+
+All methods call `->validate()` before carrying out their operation. To add your own validation, override this method and throw an Exception on validation error.
 
 Find a single record by primary key
 ===================================
 
-returns an object for the matching row
+Returns an object for the matching row, or null if not found.
 
-    $cat = Category::getById(1);
+```php
+$cat = Category::getById(1);
+```
 
 Delete record(s)
 ==================
 
 Via an instance method
 
-    $cat = Category::getById(1);
-    $cat->delete();
+```php
+$cat = Category::getById(1);
+$cat?->delete();
+```
 
 OR a Class method (primary key deletes only)
 
-    Category::deleteById(1);
+```php
+Category::deleteById(1);
+```
     
 OR  all records matching a where clause
 
-    Category::deleteAllWhere('name = ?',array('changed name'));
+```php
+Category::deleteAllWhere('name = ?', array('changed name'));
+```
     
 OR  all records matching a where clause, specifying order and limits with more regular SQL
 
-    Category::deleteAllWhere('name = ? ORDER BY name DESC LIMIT 2',array('changed name'));
+```php
+Category::deleteAllWhere('name = ? ORDER BY name DESC LIMIT 2', array('changed name'));
+```
 
 Dynamic field name finders & counters
 =====================================
 
 Return an object for the first matching the name
 
-    Category::findOne_by_name('changed name');
+```php
+Category::findOne_by_name('changed name');
+```
 
 Return an object for the first match from the names
 
-    Category::findOne_by_name(array('changed name','second test'));
+```php
+Category::findOne_by_name(array('changed name', 'second test'));
+```
 
 Return an array of objects that match the name
 
-    Category::find_by_name('changed name');
+```php
+Category::find_by_name('changed name');
+```
 
 Return an array of objects that match the names
 
-    Category::find_by_name(array('changed name','second test'));
+```php
+Category::find_by_name(array('changed name', 'second test'));
+```
 
-Return the first record by ascending field 'name' as a Catgory object
+Return the first record by ascending field 'name' as a Category object
 
-    Category::first_by_name('john');  // can also pass an array of values to match
+```php
+Category::first_by_name('john');  // can also pass an array of values to match
+```
 
-Return the last record in the table when sorted by ascending field 'name' as a Catgory object
+Return the last record in the table when sorted by ascending field 'name' as a Category object
 
-    Category::last_by_name('john');   // can also pass an array of values to match
+```php
+Category::last_by_name('john');   // can also pass an array of values to match
+```
 
 Return a count of records that match the name
 
-    Category::count_by_name('changed name');
+```php
+Category::count_by_name('changed name');
+```
 
 Return a count of records that match a set of values
 
-    Category::count_by_name(array('changed name','second test'));
+```php
+Category::count_by_name(array('changed name', 'second test'));
+```
 
 First, last & Count
 ===================
 
-return the first record by ascending primary key as a Catgory object
+return the first record by ascending primary key as a Category object (or null)
 
-    Category::first();
+```php
+Category::first();
+```
 
-return the last record in the table when sorted by ascending primary key as a Catgory object
+return the last record in the table when sorted by ascending primary key as a Category object (or null)
 
-    Category::last();
+```php
+Category::last();
+```
 
-return the number of rows in the table
+Return the number of rows in the table
 
-    Catgory::count();
+```php
+Category::count();
+```
 
-Arbitary Statements
-===================
+Arbitrary Statements
+====================
 
-run an arbitary statement returning a PDO statement handle to issue fetch etc... on
+run an arbitrary statement returning a PDO statement handle to issue fetch etc... on
 
-    $st = db\Model::execute('SELECT * FROM categoies WHERE id = ? AND id = ? AND id > ?', array(1,2,6));
+```php
+$st = Freshsauce\Model\Model::execute(
+  'SELECT * FROM categories WHERE id = ? AND id = ? AND id > ?',
+  array(1, 2, 6)
+);
+```
 
 Find One Or All
 ===============
 
-custom SQL after the WHERE keyword returning the first match or all matches as Model instances
+Custom SQL after the WHERE keyword returning the first match or all matches as Model instances.
+`fetchOneWhere()` returns null when no rows match.
 
 fetch one Category object with a custom WHERE ... clause
 
-    $cat = Category::fetchOneWhere('id = ? OR name = ?',array(1,'test'));
+```php
+$cat = Category::fetchOneWhere('id = ? OR name = ?', array(1, 'test'));
+```
 
-fetch array of Category objects with a custom WHERE ... clause
+Fetch array of Category objects with a custom WHERE ... clause
 
-    $cat = Category::fetchAllWhere('id = ? OR name = ?',array(1,'second test'));
+```php
+$cat = Category::fetchAllWhere('id = ? OR name = ?', array(1, 'second test'));
+```
     
-fetch array of Category objects, as above but this time getting the second one if it exists ordered by ascending name
+Fetch array of Category objects, as above but this time getting the second one if it exists ordered by ascending name
 
-    $cat = Category::fetchAllWhere('id = ? OR name = ? ORDER BY name ASC LIMIT 1,1',array(1,'second test'));
+```php
+$cat = Category::fetchAllWhere('id = ? OR name = ? ORDER BY name ASC LIMIT 1,1', array(1, 'second test'));
+```
 
 General SQL Helpers
 ===================
 
 Generate placeholders for an IN clause
 
-    $params = array(1,2,3,4);
-    $placeholders = db\Model::createInClausePlaceholders($params);    // returns a string '?,?,?,?
-    Category::fetchAllWhere('id IN ('.$placeholders.')',$params);     // use use in a query
+```php
+$params = array(1, 2, 3, 4);
+$placeholders = Freshsauce\Model\Model::createInClausePlaceholders($params); // returns '?,?,?,?'
+Category::fetchAllWhere('id IN (' . $placeholders . ')', $params);
+```
 
 Take a date string or unix datetime number and return a string that can be assigned to a TIMESTAMP or DATETIME field
-date strings are parsed into a unix date via PHPs incredibly flexible strtotime()
+date strings are parsed into a unix date via PHP's incredibly flexible strtotime()
 
-    db\Model::datetimeToMysqldatetime('2012 Sept 13th 12:00');  // returns '2012-09-13 12:00:00'
-    db\Model::datetimeToMysqldatetime('next Monday');  // returns next monday midnight in the format 'YYYY-MM-DD HH:MM:SS'
-    db\Model::datetimeToMysqldatetime(gmdate());  // returns the current date time in the format 'YYYY-MM-DD HH:MM:SS'
-    
+```php
+Freshsauce\Model\Model::datetimeToMysqldatetime('2012 Sept 13th 12:00');
+Freshsauce\Model\Model::datetimeToMysqldatetime('next Monday');
+Freshsauce\Model\Model::datetimeToMysqldatetime(gmdate());
+```
