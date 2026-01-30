@@ -228,6 +228,9 @@ class Model
     {
         static::$_db = new \PDO($dsn, $username, $password, $driverOptions);
         static::$_db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION); // Set Errorhandling to Exception
+        static::$_identifier_quote_character = null;
+        static::$_stmt = array();
+        self::$_tableColumns = array();
         static::_setup_identifier_quote_character();
     }
 
@@ -443,9 +446,9 @@ class Model
      *
      * @param int|string $id
      *
-     * @return static
+     * @return static|null
      */
-    public static function getById(int|string $id): static
+    public static function getById(int|string $id): ?static
     {
         return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name) . ' = ?', array($id));
     }
@@ -453,9 +456,9 @@ class Model
     /**
      * Get the first record in the table
      *
-     * @return static
+     * @return static|null
      */
-    public static function first(): static
+    public static function first(): ?static
     {
         return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' ASC');
     }
@@ -463,9 +466,9 @@ class Model
     /**
      * Get the last record in the table
      *
-     * @return static
+     * @return static|null
      */
-    public static function last(): static
+    public static function last(): ?static
     {
         return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' DESC');
     }
@@ -539,7 +542,7 @@ class Model
      * @param string|array $match
      * @param string       $order ASC|DESC
      *
-     * @return object of calling class
+     * @return static|null object of calling class
      */
     public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order)
     {
@@ -626,9 +629,9 @@ class Model
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      * @param bool   $limitOne    if true the first match will be returned
      *
-     * @return array|static object[]|object of objects of calling class
+     * @return array|static|null object[]|object of objects of calling class
      */
-    public static function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false): array|static
+    public static function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false): array|static|null
     {
         $class       = get_called_class();
         $SQLfragment = self::addWherePrefix($SQLfragment);
@@ -638,7 +641,11 @@ class Model
         );
         $st->setFetchMode(\PDO::FETCH_ASSOC);
         if ($limitOne) {
-            $instance = new $class($st->fetch());
+            $row = $st->fetch();
+            if ($row === false) {
+                return null;
+            }
+            $instance = new $class($row);
             $instance->clearDirtyFields();
             return $instance;
         }
@@ -672,9 +679,9 @@ class Model
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      *
-     * @return static object of calling class
+     * @return static|null object of calling class
      */
-    public static function fetchOneWhere($SQLfragment = '', $params = array()): static
+    public static function fetchOneWhere($SQLfragment = '', $params = array()): ?static
     {
         /** @var static $result */
         $result = static::fetchWhere($SQLfragment, $params, true);
@@ -780,8 +787,18 @@ class Model
             return false;
         }
 
-        $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'];
-        $st    = static::execute($query, $set['params']);
+        if ($set['sql'] === '') {
+            if ($driver === 'sqlite' || $driver === 'sqlite2') {
+                $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' DEFAULT VALUES';
+                $st = static::execute($query);
+            } else {
+                $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' () VALUES ()';
+                $st = static::execute($query);
+            }
+        } else {
+            $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'];
+            $st    = static::execute($query, $set['params']);
+        }
         if ($st->rowCount() == 1) {
             if ($allowSetPrimaryKey !== true) {
                 $db = static::$_db;
@@ -809,6 +826,9 @@ class Model
         }
         $this->validate();
         $set             = $this->setString();
+        if ($set['sql'] === '') {
+            return false;
+        }
         $limitClause     = static::supportsUpdateLimit() ? ' LIMIT 1' : '';
         $query           = 'UPDATE ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'] . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ?' . $limitClause;
         $set['params'][] = $this->{static::$_primary_column_name};
