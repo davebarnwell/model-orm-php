@@ -39,5 +39,10 @@
   "suggest": {
     "ext-pdo_mysql": "Required for MySQL/MariaDB support",
     "ext-pdo_pgsql": "Required for PostgreSQL support"
+  },
+  "config": {
+    "platform": {
+      "php": "8.3.0"
+    }
   }
 }
