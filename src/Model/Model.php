@@ -6,13 +6,13 @@ namespace Freshsauce\Model;
  * Model ORM
  *
  *
- *  A simple database abstraction layer for PHP 5.3+ with very minor configuration required
+ *  A simple database abstraction layer for PHP 8.3+ with very minor configuration required
  *
  * database table columns are auto detected and made available as public members of the class
  * provides CRUD, dynamic counters/finders on a database table
  * uses PDO for data access and exposes PDO if required
  * class members used to do the magic are preceeded with an underscore, be careful of column names starting with _ in your database!
- * requires php >=5.3 as uses "Late Static Binding" and namespaces
+ * requires php >=8.3
  *
  *
  * @property string $created_at optional datatime in table that will automatically get updated on insert
@@ -24,15 +24,17 @@ namespace Freshsauce\Model;
 /**
  * Class Model
  *
+ * @property string|null $created_at optional datetime in table that will automatically get updated on insert
+ * @property string|null $updated_at optional datetime in table that will automatically get updated on insert/update
+ *
  * @package Freshsauce\Model
  */
 class Model
 {
-
     // Class configuration
 
     /**
-     * @var \PDO
+     * @var \PDO|null
      */
     public static $_db; // all models inherit this db connection
     // but can overide in a sub-class by calling subClass::connectDB(...)
@@ -44,7 +46,7 @@ class Model
     protected static $_stmt = array(); // prepared statements cache
 
     /**
-     * @var string
+     * @var string|null
      */
     protected static $_identifier_quote_character; // character used to quote table & columns names
 
@@ -137,7 +139,7 @@ class Model
      *
      * @param string $name
      */
-    public function markFieldDirty($name)
+    public function markFieldDirty(string $name): void
     {
         $this->dirty->$name = true; // field became dirty
     }
@@ -157,7 +159,7 @@ class Model
     /**
      * resets what fields have been considered dirty ie. been changed without being saved to the db
      */
-    public function clearDirtyFields()
+    public function clearDirtyFields(): void
     {
         $this->dirty = new \stdClass();
     }
@@ -182,10 +184,12 @@ class Model
         }
 
         $trace = debug_backtrace();
+        $file = $trace[0]['file'] ?? 'unknown';
+        $line = $trace[0]['line'] ?? 0;
         throw new \Exception(
             'Undefined property via __get(): ' . $name .
-            ' in ' . $trace[0]['file'] .
-            ' on line ' . $trace[0]['line'],
+            ' in ' . $file .
+            ' on line ' . $line,
             1
         );
     }
@@ -220,7 +224,7 @@ class Model
      *
      * @throws \Exception
      */
-    public static function connectDb($dsn, $username, $password, $driverOptions = array())
+    public static function connectDb(string $dsn, string $username, string $password, array $driverOptions = array()): void
     {
         static::$_db = new \PDO($dsn, $username, $password, $driverOptions);
         static::$_db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION); // Set Errorhandling to Exception
@@ -273,10 +277,26 @@ class Model
      */
     protected static function getDriverName()
     {
-        if (!static::$_db) {
+        $db = static::$_db;
+        if (!$db) {
             throw new \Exception('No database connection setup');
         }
-        return static::$_db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        if (!is_string($driver)) {
+            throw new \Exception('Unable to determine database driver');
+        }
+        return $driver;
+    }
+
+    /**
+     * Public accessor for the current PDO driver name.
+     *
+     * @return string
+     * @throws \Exception
+     */
+    public static function driverName()
+    {
+        return static::getDriverName();
     }
 
     /**
@@ -314,7 +334,13 @@ class Model
         if ($part === '*') {
             return $part;
         }
-        return static::$_identifier_quote_character . $part . static::$_identifier_quote_character;
+        static::_setup_identifier_quote_character();
+        $quote = static::$_identifier_quote_character;
+        if ($quote === null) {
+            throw new \Exception('Identifier quote character not set');
+        }
+        $escaped = str_replace($quote, $quote . $quote, $part);
+        return $quote . $escaped . $quote;
     }
 
     /**
@@ -326,10 +352,39 @@ class Model
     {
         $class = get_called_class();
         if (!isset(self::$_tableColumns[$class])) {
-            $st                          = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
-            self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN);
+            $driver = static::getDriverName();
+            if ($driver === 'pgsql') {
+                list($schema, $table) = static::splitTableName(static::$_tableName);
+                $st = static::execute(
+                    'SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position',
+                    array($schema, $table)
+                );
+                self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN);
+            } elseif ($driver === 'sqlite' || $driver === 'sqlite2') {
+                $st = static::execute('PRAGMA table_info(' . static::_quote_identifier(static::$_tableName) . ')');
+                self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN, 1);
+            } else {
+                $st                          = static::execute('DESCRIBE ' . static::_quote_identifier(static::$_tableName));
+                self::$_tableColumns[$class] = $st->fetchAll(\PDO::FETCH_COLUMN);
+            }
         }
         return self::$_tableColumns[$class];
+    }
+
+    /**
+     * Split a table name into schema and table, defaulting schema to public.
+     *
+     * @param string $tableName
+     *
+     * @return string[]
+     */
+    protected static function splitTableName($tableName)
+    {
+        $parts = explode('.', $tableName, 2);
+        if (count($parts) === 2) {
+            return $parts;
+        }
+        return array('public', $tableName);
     }
 
     /**
@@ -339,12 +394,12 @@ class Model
      *
      * @return void
      */
-    public function hydrate($data)
+    public function hydrate(array $data): void
     {
         foreach (static::getFieldnames() as $fieldname) {
             if (isset($data[$fieldname])) {
                 $this->$fieldname = $data[$fieldname];
-            } else if (!isset($this->$fieldname)) { // PDO pre populates fields before calling the constructor, so dont null unless not set
+            } elseif (!isset($this->$fieldname)) { // PDO pre populates fields before calling the constructor, so dont null unless not set
                 $this->$fieldname = null;
             }
         }
@@ -386,11 +441,11 @@ class Model
     /**
      * Get the record with the matching primary key
      *
-     * @param string $id
+     * @param int|string $id
      *
-     * @return Object
+     * @return static
      */
-    static public function getById($id)
+    public static function getById(int|string $id): static
     {
         return static::fetchOneWhere(static::_quote_identifier(static::$_primary_column_name) . ' = ?', array($id));
     }
@@ -398,9 +453,9 @@ class Model
     /**
      * Get the first record in the table
      *
-     * @return Object
+     * @return static
      */
-    static public function first()
+    public static function first(): static
     {
         return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' ASC');
     }
@@ -408,9 +463,9 @@ class Model
     /**
      * Get the last record in the table
      *
-     * @return Object
+     * @return static
      */
-    static public function last()
+    public static function last(): static
     {
         return static::fetchOneWhere('1=1 ORDER BY ' . static::_quote_identifier(static::$_primary_column_name) . ' DESC');
     }
@@ -422,10 +477,10 @@ class Model
      *
      * @return object[] of objects for matching records
      */
-    static public function find($id)
+    public static function find($id)
     {
         $find_by_method = 'find_by_' . (static::$_primary_column_name);
-        static::$find_by_method($id);
+        return static::$find_by_method($id);
     }
 
     /**
@@ -436,12 +491,12 @@ class Model
      *  count_by_title('a great book')
      *
      * @param string $name
-     * @param string $arguments
+     * @param array  $arguments
      *
      * @return mixed int|object[]|object
      * @throws \Exception
      */
-    static public function __callStatic($name, $arguments)
+    public static function __callStatic($name, $arguments)
     {
         // Note: value of $name is case sensitive.
         if (preg_match('/^find_by_/', $name) == 1) {
@@ -449,22 +504,22 @@ class Model
             $fieldname = substr($name, 8); // remove find by
             $match     = $arguments[0];
             return static::fetchAllWhereMatchingSingleField($fieldname, $match);
-        } else if (preg_match('/^findOne_by_/', $name) == 1) {
+        } elseif (preg_match('/^findOne_by_/', $name) == 1) {
             // it's a findOne_by_{fieldname} dynamic method
             $fieldname = substr($name, 11); // remove findOne_by_
             $match     = $arguments[0];
             return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'ASC');
-        } else if (preg_match('/^first_by_/', $name) == 1) {
+        } elseif (preg_match('/^first_by_/', $name) == 1) {
             // it's a first_by_{fieldname} dynamic method
             $fieldname = substr($name, 9); // remove first_by_
             $match     = $arguments[0];
             return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'ASC');
-        } else if (preg_match('/^last_by_/', $name) == 1) {
+        } elseif (preg_match('/^last_by_/', $name) == 1) {
             // it's a last_by_{fieldname} dynamic method
             $fieldname = substr($name, 8); // remove last_by_
             $match     = $arguments[0];
             return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'DESC');
-        } else if (preg_match('/^count_by_/', $name) == 1) {
+        } elseif (preg_match('/^count_by_/', $name) == 1) {
             // it's a count_by_{fieldname} dynamic method
             $fieldname = substr($name, 9); // remove find by
             $match     = $arguments[0];
@@ -520,7 +575,7 @@ class Model
      *
      * @return string
      */
-    static public function createInClausePlaceholders($params)
+    public static function createInClausePlaceholders($params)
     {
         return implode(',', array_fill(0, count($params), '?'));
     }
@@ -530,7 +585,7 @@ class Model
      *
      * @return int
      */
-    static public function count()
+    public static function count()
     {
         $st = static::execute('SELECT COUNT(*) FROM ' . static::_quote_identifier(static::$_tableName));
         return (int)$st->fetchColumn(0);
@@ -544,7 +599,7 @@ class Model
      *
      * @return integer count of rows matching conditions
      */
-    static public function countAllWhere($SQLfragment = '', $params = array())
+    public static function countAllWhere($SQLfragment = '', $params = array())
     {
         $SQLfragment = self::addWherePrefix($SQLfragment);
         $st          = static::execute('SELECT COUNT(*) FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment, $params);
@@ -558,7 +613,7 @@ class Model
      *
      * @return string
      */
-    static protected function addWherePrefix($SQLfragment)
+    protected static function addWherePrefix($SQLfragment)
     {
         return $SQLfragment ? ' WHERE ' . $SQLfragment : $SQLfragment;
     }
@@ -571,9 +626,9 @@ class Model
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      * @param bool   $limitOne    if true the first match will be returned
      *
-     * @return mixed object[]|object of objects of calling class
+     * @return array|static object[]|object of objects of calling class
      */
-    static public function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false)
+    public static function fetchWhere($SQLfragment = '', $params = array(), $limitOne = false): array|static
     {
         $class       = get_called_class();
         $SQLfragment = self::addWherePrefix($SQLfragment);
@@ -602,11 +657,13 @@ class Model
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      *
-     * @return object[] of objects of calling class
+     * @return array object[] of objects of calling class
      */
-    static public function fetchAllWhere($SQLfragment = '', $params = array())
+    public static function fetchAllWhere($SQLfragment = '', $params = array()): array
     {
-        return static::fetchWhere($SQLfragment, $params, false);
+        /** @var array $results */
+        $results = static::fetchWhere($SQLfragment, $params, false);
+        return $results;
     }
 
     /**
@@ -615,11 +672,13 @@ class Model
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
      * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
      *
-     * @return object of calling class
+     * @return static object of calling class
      */
-    static public function fetchOneWhere($SQLfragment = '', $params = array())
+    public static function fetchOneWhere($SQLfragment = '', $params = array()): static
     {
-        return static::fetchWhere($SQLfragment, $params, true);
+        /** @var static $result */
+        $result = static::fetchWhere($SQLfragment, $params, true);
+        return $result;
     }
 
     /**
@@ -627,10 +686,11 @@ class Model
      *
      * @return boolean indicating success
      */
-    static public function deleteById($id)
+    public static function deleteById(int|string $id): bool
     {
+        $limitClause = static::supportsDeleteLimit() ? ' LIMIT 1' : '';
         $st = static::execute(
-            'DELETE FROM ' . static::_quote_identifier(static::$_tableName) . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ? LIMIT 1',
+            'DELETE FROM ' . static::_quote_identifier(static::$_tableName) . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ?' . $limitClause,
             array($id)
         );
         return ($st->rowCount() == 1);
@@ -654,7 +714,7 @@ class Model
      *
      * @return \PDOStatement
      */
-    static public function deleteAllWhere($where, $params = array())
+    public static function deleteAllWhere($where, $params = array())
     {
         $st = static::execute(
             'DELETE FROM ' . static::_quote_identifier(static::$_tableName) . ' WHERE ' . $where,
@@ -669,7 +729,7 @@ class Model
      *
      * @return boolean true or throws exception on error
      */
-    static public function validate()
+    public static function validate()
     {
         return true;
     }
@@ -696,11 +756,40 @@ class Model
         if ($allowSetPrimaryKey !== true) {
             $this->$pk = null; // ensure id is null
         }
-        $set   = $this->setString(!$allowSetPrimaryKey);
+        $set = $this->setString(!$allowSetPrimaryKey);
+        $driver = static::getDriverName();
+        if ($driver === 'pgsql') {
+            if (count($set['columns']) === 0) {
+                $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' DEFAULT VALUES RETURNING ' . static::_quote_identifier(static::$_primary_column_name);
+                $st = static::execute($query);
+            } else {
+                $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) .
+                    ' (' . implode(', ', $set['columns']) . ')' .
+                    ' VALUES (' . implode(', ', $set['values']) . ')' .
+                    ' RETURNING ' . static::_quote_identifier(static::$_primary_column_name);
+                $st = static::execute($query, $set['params']);
+            }
+            $insertedId = $st->fetchColumn();
+            if ($insertedId !== false) {
+                if ($allowSetPrimaryKey !== true) {
+                    $this->{static::$_primary_column_name} = $insertedId;
+                }
+                $this->clearDirtyFields();
+                return true;
+            }
+            return false;
+        }
+
         $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'];
         $st    = static::execute($query, $set['params']);
         if ($st->rowCount() == 1) {
-            $this->{static::$_primary_column_name} = static::$_db->lastInsertId();
+            if ($allowSetPrimaryKey !== true) {
+                $db = static::$_db;
+                if (!$db) {
+                    throw new \Exception('No database connection setup');
+                }
+                $this->{static::$_primary_column_name} = $db->lastInsertId();
+            }
             $this->clearDirtyFields();
         }
         return ($st->rowCount() == 1);
@@ -720,7 +809,8 @@ class Model
         }
         $this->validate();
         $set             = $this->setString();
-        $query           = 'UPDATE ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'] . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ? LIMIT 1';
+        $limitClause     = static::supportsUpdateLimit() ? ' LIMIT 1' : '';
+        $query           = 'UPDATE ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'] . ' WHERE ' . static::_quote_identifier(static::$_primary_column_name) . ' = ?' . $limitClause;
         $set['params'][] = $this->{static::$_primary_column_name};
         $st              = static::execute(
             $query,
@@ -758,9 +848,13 @@ class Model
      */
     protected static function _prepare($query)
     {
+        $db = static::$_db;
+        if (!$db) {
+            throw new \Exception('No database connection setup');
+        }
         if (!isset(static::$_stmt[$query])) {
             // cache prepared query if not seen before
-            static::$_stmt[$query] = static::$_db->prepare($query);
+            static::$_stmt[$query] = $db->prepare($query);
         }
         return static::$_stmt[$query]; // return cache copy
     }
@@ -799,40 +893,80 @@ class Model
          * @var array $params values in order to insert into SQl assignment fragments
          */
         $params = [];
+        /**
+         * @var array $columns column list for INSERT
+         */
+        $columns = [];
+        /**
+         * @var array $values placeholder list for INSERT
+         */
+        $values = [];
+        $hasData = $this->hasData();
         foreach (static::getFieldnames() as $field) {
             if ($ignorePrimary && $field == static::$_primary_column_name) {
                 continue;
             }
-            if (isset($this->$field) && $this->isFieldDirty($field)) { // Only if dirty
-                if ($this->$field === null) {
-                    // if empty set to NULL
-                    $fragments[] = static::_quote_identifier($field) . ' = NULL';
-                } else {
-                    // Just set value normally as not empty string with NULL allowed
-                    $fragments[] = static::_quote_identifier($field) . ' = ?';
-                    $params[]    = $this->$field;
-                }
+            if (!$hasData || !property_exists($this->data, $field) || !$this->isFieldDirty($field)) {
+                continue;
+            }
+            $columns[] = static::_quote_identifier($field);
+            if ($this->$field === null) {
+                // if empty set to NULL
+                $fragments[] = static::_quote_identifier($field) . ' = NULL';
+                $values[] = 'NULL';
+            } else {
+                // Just set value normally as not empty string with NULL allowed
+                $fragments[] = static::_quote_identifier($field) . ' = ?';
+                $values[] = '?';
+                $params[]    = $this->$field;
             }
         }
         $sqlFragment = implode(", ", $fragments);
         return [
             'sql'    => $sqlFragment,
-            'params' => $params
+            'params' => $params,
+            'columns' => $columns,
+            'values' => $values
         ];
+    }
+
+    /**
+     * Determine whether the driver supports LIMIT on UPDATE.
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    protected static function supportsUpdateLimit()
+    {
+        $driver = static::getDriverName();
+        return ($driver === 'mysql' || $driver === 'sqlite' || $driver === 'sqlite2');
+    }
+
+    /**
+     * Determine whether the driver supports LIMIT on DELETE.
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    protected static function supportsDeleteLimit()
+    {
+        $driver = static::getDriverName();
+        return ($driver === 'mysql' || $driver === 'sqlite' || $driver === 'sqlite2');
     }
 
     /**
      * convert a date string or timestamp into a string suitable for assigning to a SQl datetime or timestamp field
      *
-     * @param mixed $dt a date string or a unix timestamp
+     * @param int|string $dt a date string or a unix timestamp
      *
      * @return string
      */
-    public static function datetimeToMysqldatetime($dt)
+    public static function datetimeToMysqldatetime(int|string $dt): string
     {
-        $dt = (is_string($dt)) ? strtotime($dt) : $dt;
-        return date('Y-m-d H:i:s', $dt);
+        $timestamp = (is_string($dt)) ? strtotime($dt) : $dt;
+        if ($timestamp === false) {
+            $timestamp = 0;
+        }
+        return date('Y-m-d H:i:s', (int) $timestamp);
     }
 }
-
-

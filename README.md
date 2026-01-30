@@ -12,13 +12,13 @@ PHP Model class which provides
 * raw database queries with escaped parameters
 * helpers for finding one or more records returning rows as instances of the Model class
 * throws exception on query error
-* Requires PHP >= 5.3
-* Currenlty only tested with MySQL through the PDO drivers
+* Requires PHP >= 8.3
+* Supports MySQL/MariaDB and PostgreSQL via PDO
 
 Usage
 =====
 
-With a mysql database as such on your localhost
+With a MySQL database as such on your localhost
 
     CREATE DATABASE categorytest;
     CREATE TABLE `categories` (
@@ -30,12 +30,34 @@ With a mysql database as such on your localhost
     ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
     require_once('vendor/autoload.php');
-    Db\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');    // db connection for all sub-classes
+    Freshsauce\Model\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1','root','');    // db connection for all sub-classes
 
     // minimum model definition
-    class Category extends db\Model {
+    class Category extends Freshsauce\Model\Model {
       static protected $_tableName = 'categories'; // database table name
     }
+
+PostgreSQL example schema and connection
+
+    CREATE TABLE categories (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NULL,
+      updated_at TIMESTAMP NULL,
+      created_at TIMESTAMP NULL
+    );
+
+    Freshsauce\Model\Model::connectDb('pgsql:host=127.0.0.1;port=5432;dbname=categorytest','postgres','postgres');
+
+Testing
+=======
+
+Run PHPUnit with optional environment overrides for the DB connection:
+
+    MODEL_ORM_TEST_DSN=mysql:host=127.0.0.1;port=3306
+    MODEL_ORM_TEST_USER=root
+    MODEL_ORM_TEST_PASS=
+
+    vendor/bin/phpunit -c phpunit.xml.dist
 
 Save & Update records
 =====================

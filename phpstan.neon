@@ -1,0 +1,11 @@
+parameters:
+  level: 9
+  paths:
+    - src
+    - tests
+  reportUnmatchedIgnoredErrors: false
+  universalObjectCratesClasses:
+    - Freshsauce\\Model\\Model
+  ignoreErrors:
+    - identifier: missingType.iterableValue
+    - identifier: missingType.generics
