@@ -110,10 +110,20 @@ class CategoryTest extends TestCase
 
         // read category back into a new object
         $read_category = App\Model\Category::getById($category->id);
+        $this->assertNotNull($read_category);
         $this->assertEquals($read_category->name, $_name);
         $this->assertEquals($read_category->id, $category->id);
         $this->assertNotEmpty($category->created_at);
         $this->assertNotEmpty($category->updated_at);
+    }
+
+    /**
+     * @covers ::fetchOneWhere
+     */
+    public function testFetchOneWhereReturnsNullWhenMissing(): void
+    {
+        $missing = App\Model\Category::fetchOneWhere('name = ?', ['__missing__' . uniqid('', true)]);
+        $this->assertNull($missing);
     }
 
     /**
@@ -145,6 +155,32 @@ class CategoryTest extends TestCase
         $this->assertEquals($category->id, $_id);
         $this->assertNotEquals($category->updated_at, $_updated_at);
 
+    }
+
+    /**
+     * @covers ::insert
+     */
+    public function testInsertWithDefaultValuesWhenNoDirtyFields(): void
+    {
+        $category = new App\Model\Category();
+        $category->clearDirtyFields();
+
+        $this->assertTrue($category->insert(false));
+        $this->assertNotEmpty($category->id);
+    }
+
+    /**
+     * @covers ::update
+     */
+    public function testUpdateWithoutDirtyFieldsReturnsFalse(): void
+    {
+        $category = new App\Model\Category(array(
+            'name' => 'Nonfiction'
+        ));
+        $category->save();
+        $category->clearDirtyFields();
+
+        $this->assertFalse($category->update(false));
     }
 
     /**
