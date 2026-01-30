@@ -510,37 +510,109 @@ class Model
     public static function __callStatic($name, $arguments)
     {
         // Note: value of $name is case sensitive.
+        $match = $arguments[0] ?? null;
         if (preg_match('/^find_by_/', $name) == 1) {
             // it's a find_by_{fieldname} dynamic method
             $fieldname = substr($name, 8); // remove find by
-            $match     = $arguments[0];
-            return static::fetchAllWhereMatchingSingleField($fieldname, $match);
+            return static::fetchAllWhereMatchingSingleField(static::resolveFieldName($fieldname), $match);
         } elseif (preg_match('/^findOne_by_/', $name) == 1) {
             // it's a findOne_by_{fieldname} dynamic method
             $fieldname = substr($name, 11); // remove findOne_by_
-            $match     = $arguments[0];
-            return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'ASC');
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
         } elseif (preg_match('/^first_by_/', $name) == 1) {
             // it's a first_by_{fieldname} dynamic method
             $fieldname = substr($name, 9); // remove first_by_
-            $match     = $arguments[0];
-            return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'ASC');
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
         } elseif (preg_match('/^last_by_/', $name) == 1) {
             // it's a last_by_{fieldname} dynamic method
             $fieldname = substr($name, 8); // remove last_by_
-            $match     = $arguments[0];
-            return static::fetchOneWhereMatchingSingleField($fieldname, $match, 'DESC');
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'DESC');
         } elseif (preg_match('/^count_by_/', $name) == 1) {
             // it's a count_by_{fieldname} dynamic method
             $fieldname = substr($name, 9); // remove find by
-            $match     = $arguments[0];
-            if (is_array($match)) {
-                return static::countAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
-            } else {
-                return static::countAllWhere(static::_quote_identifier($fieldname) . ' = ?', array($match));
-            }
+            return static::countByField(static::resolveFieldName($fieldname), $match);
+        } elseif (preg_match('/^findBy/', $name) == 1) {
+            // it's a findBy{Fieldname} dynamic method
+            $fieldname = substr($name, 6); // remove findBy
+            return static::fetchAllWhereMatchingSingleField(static::resolveFieldName($fieldname), $match);
+        } elseif (preg_match('/^findOneBy/', $name) == 1) {
+            // it's a findOneBy{Fieldname} dynamic method
+            $fieldname = substr($name, 9); // remove findOneBy
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
+        } elseif (preg_match('/^firstBy/', $name) == 1) {
+            // it's a firstBy{Fieldname} dynamic method
+            $fieldname = substr($name, 7); // remove firstBy
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
+        } elseif (preg_match('/^lastBy/', $name) == 1) {
+            // it's a lastBy{Fieldname} dynamic method
+            $fieldname = substr($name, 6); // remove lastBy
+            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'DESC');
+        } elseif (preg_match('/^countBy/', $name) == 1) {
+            // it's a countBy{Fieldname} dynamic method
+            $fieldname = substr($name, 7); // remove countBy
+            return static::countByField(static::resolveFieldName($fieldname), $match);
         }
         throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
+    }
+
+    /**
+     * Resolve a dynamic field name from snake_case or CamelCase to an actual column name.
+     *
+     * @param string $fieldname
+     *
+     * @return string
+     * @throws \Exception
+     */
+    protected static function resolveFieldName($fieldname)
+    {
+        $fieldnames = static::getFieldnames();
+        if (in_array($fieldname, $fieldnames, true)) {
+            return $fieldname;
+        }
+        foreach ($fieldnames as $field) {
+            if (strcasecmp($field, $fieldname) === 0) {
+                return $field;
+            }
+        }
+        $snake = static::camelToSnake($fieldname);
+        if (in_array($snake, $fieldnames, true)) {
+            return $snake;
+        }
+        foreach ($fieldnames as $field) {
+            if (strcasecmp($field, $snake) === 0) {
+                return $field;
+            }
+        }
+        return $fieldname;
+    }
+
+    /**
+     * Convert CamelCase or mixedCase to snake_case.
+     *
+     * @param string $fieldname
+     *
+     * @return string
+     */
+    protected static function camelToSnake($fieldname)
+    {
+        $snake = preg_replace('/(?<!^)[A-Z]/', '_$0', $fieldname);
+        return strtolower($snake ?? $fieldname);
+    }
+
+    /**
+     * Count records for a field with either a single value or an array of values.
+     *
+     * @param string $fieldname
+     * @param mixed  $match
+     *
+     * @return int
+     */
+    protected static function countByField($fieldname, $match)
+    {
+        if (is_array($match)) {
+            return static::countAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
+        }
+        return static::countAllWhere(static::_quote_identifier($fieldname) . ' = ?', array($match));
     }
 
     /**

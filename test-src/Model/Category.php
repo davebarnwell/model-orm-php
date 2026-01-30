@@ -4,6 +4,11 @@ namespace App\Model;
 
 /**
  * @method static array find_by_name($match)
+ * @method static array findByName($match)
+ * @method static self|null findOneByName($match)
+ * @method static self|null firstByName($match)
+ * @method static self|null lastByName($match)
+ * @method static int countByName($match)
  * @property int|null $id primary key
  * @property string|null $name category name
  * @property string|null $updated_at mysql datetime string

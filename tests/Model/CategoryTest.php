@@ -207,4 +207,42 @@ class CategoryTest extends TestCase
         $this->assertContainsOnlyInstancesOf('App\Model\Category', $categories);
         $this->assertCount(count($_names), $categories);
     }
+
+    /**
+     * @covers ::__callStatic
+     * @covers ::fetchAllWhereMatchingSingleField
+     * @covers ::fetchOneWhereMatchingSingleField
+     * @covers ::countAllWhere
+     */
+    public function testDynamicFindersCamelCase(): void
+    {
+        $_names = [
+            'Camel_' . uniqid('a_', true),
+            'Camel_' . uniqid('b_', true),
+        ];
+        foreach ($_names as $_name) {
+            $category = new App\Model\Category(array(
+                'name' => $_name
+            ));
+            $category->save();
+        }
+
+        $categories = App\Model\Category::findByName($_names);
+        $this->assertCount(count($_names), $categories);
+
+        $one = App\Model\Category::findOneByName($_names[0]);
+        $this->assertNotNull($one);
+        $this->assertEquals($_names[0], $one->name);
+
+        $first = App\Model\Category::firstByName($_names);
+        $this->assertNotNull($first);
+        $this->assertContains($first->name, $_names);
+
+        $last = App\Model\Category::lastByName($_names);
+        $this->assertNotNull($last);
+        $this->assertContains($last->name, $_names);
+
+        $count = App\Model\Category::countByName($_names);
+        $this->assertEquals(count($_names), $count);
+    }
 }
