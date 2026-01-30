@@ -241,7 +241,7 @@ class Model
      * @return void
      * @throws \Exception
      */
-    public static function _setup_identifier_quote_character()
+    public static function _setup_identifier_quote_character(): void
     {
         if (is_null(static::$_identifier_quote_character)) {
             static::$_identifier_quote_character = static::_detect_identifier_quote_character();
@@ -255,7 +255,7 @@ class Model
      * @return string
      * @throws \Exception
      */
-    protected static function _detect_identifier_quote_character()
+    protected static function _detect_identifier_quote_character(): string
     {
         switch (static::getDriverName()) {
             case 'pgsql':
@@ -278,7 +278,7 @@ class Model
      * @return string
      * @throws \Exception
      */
-    protected static function getDriverName()
+    protected static function getDriverName(): string
     {
         $db = static::$_db;
         if (!$db) {
@@ -297,21 +297,21 @@ class Model
      * @return string
      * @throws \Exception
      */
-    public static function driverName()
+    public static function driverName(): string
     {
         return static::getDriverName();
     }
 
     /**
      * Quote a string that is used as an identifier
-     * (table names, column names etc). This method can
+     * (table names, column names, etc). This method can
      * also deal with dot-separated identifiers eg table.column
      *
      * @param string $identifier
      *
      * @return string
      */
-    protected static function _quote_identifier($identifier)
+    protected static function _quote_identifier($identifier): string
     {
         $class = get_called_class();
         $parts = explode('.', $identifier);
@@ -326,13 +326,14 @@ class Model
     /**
      * This method performs the actual quoting of a single
      * part of an identifier, using the identifier quote
-     * character specified in the config (or autodetected).
+     * character specified in the config (or autodetect).
      *
-     * @param string $part
+     * @param  string  $part
      *
      * @return string
+     * @throws \Exception
      */
-    protected static function _quote_identifier_part($part)
+    protected static function _quote_identifier_part(string $part): string
     {
         if ($part === '*') {
             return $part;
@@ -347,11 +348,12 @@ class Model
     }
 
     /**
-     * Get and cache on first call the column names assocaited with the current table
+     * Get and cache on the first call the column names associated with the current table
      *
      * @return array of column names for the current table
+     * @throws \Exception
      */
-    protected static function getFieldnames()
+    protected static function getFieldnames(): array
     {
         $class = get_called_class();
         if (!isset(self::$_tableColumns[$class])) {
@@ -377,11 +379,11 @@ class Model
     /**
      * Split a table name into schema and table, defaulting schema to public.
      *
-     * @param string $tableName
+     * @param  string  $tableName
      *
      * @return string[]
      */
-    protected static function splitTableName($tableName)
+    protected static function splitTableName(string $tableName): array
     {
         $parts = explode('.', $tableName, 2);
         if (count($parts) === 2) {
@@ -393,9 +395,12 @@ class Model
     /**
      * Given an associative array of key value pairs
      * set the corresponding member value if associated with a table column
-     * ignore keys which dont match a table column name
+     * ignore keys which don't match a table column name
+     *
+     * @param  array  $data
      *
      * @return void
+     * @throws \Exception
      */
     public function hydrate(array $data): void
     {
@@ -412,8 +417,9 @@ class Model
      * set all members to null that are associated with table columns
      *
      * @return void
+     * @throws \Exception
      */
-    public function clear()
+    public function clear(): void
     {
         foreach (static::getFieldnames() as $fieldname) {
             $this->$fieldname = null;
@@ -423,6 +429,7 @@ class Model
 
     /**
      * @return array
+     * @throws \Exception
      */
     public function __sleep()
     {
@@ -431,6 +438,7 @@ class Model
 
     /**
      * @return array
+     * @throws \Exception
      */
     public function toArray()
     {
@@ -744,10 +752,11 @@ class Model
     /**
      * insert a row into the database table, and update the primary key field with the one generated on insert
      *
-     * @param boolean $autoTimestamp      true by default will set updated_at & created_at fields if present
-     * @param boolean $allowSetPrimaryKey if true include primary key field in insert (ie. you want to set it yourself)
+     * @param  boolean  $autoTimestamp  true by default will set updated_at & created_at fields if present
+     * @param  boolean  $allowSetPrimaryKey  if true include primary key field in insert (ie. you want to set it yourself)
      *
      * @return boolean indicating success
+     * @throws \Exception
      */
     public function insert($autoTimestamp = true, $allowSetPrimaryKey = false)
     {
