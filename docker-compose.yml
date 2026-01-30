@@ -1,17 +1,22 @@
-# build and run the docker-compose version 2 way
-version: '2'
+# Local databases for development/testing
 services:
-
   ut_db:
     image: mariadb:latest
     ports:
       - "3306:3306"
     environment:
-     MYSQL_ALLOW_EMPTY_PASSWORD: 1
-     MYSQL_ROOT_PASSWORD:
-     MYSQL_DATABASE: unit_test
-     MYSQL_USER: unit_test_user
-     MYSQL_PASSWORD: unit_test_password
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_ROOT_PASSWORD:
+      MYSQL_DATABASE: unit_test
+      MYSQL_USER: unit_test_user
+      MYSQL_PASSWORD: unit_test_password
 
-
+  ut_pg:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: categorytest
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
 

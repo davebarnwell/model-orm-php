@@ -1,20 +1,18 @@
 <?php
 
+namespace App\Model;
+
 /**
- * Assumes a database called categorytest exists
- * with a table like
- * @property int    $id         primary key
- * @property string $name       category name
- * @property string $updated_at mysql datetime string
- * @property string $created_at mysql datetime string
+ * @method static array find_by_name($match)
+ * @property int|null $id primary key
+ * @property string|null $name category name
+ * @property string|null $updated_at mysql datetime string
+ * @property string|null $created_at mysql datetime string
  *
  * @inheritdoc
  */
-
-namespace App\Model;
-
 class Category extends \Freshsauce\Model\Model
 {
-    static protected $_tableName = 'categories'; // database table name
+    protected static $_tableName = 'categories'; // database table name
 
 }

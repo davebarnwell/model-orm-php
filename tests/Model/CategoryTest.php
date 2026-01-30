@@ -1,19 +1,26 @@
 <?php
 
+use PHPUnit\Framework\TestCase;
+
 /**
  * Class modelTest
  */
-Class CategoryTest extends \PHPUnit_Framework_TestCase
+class CategoryTest extends TestCase
 {
-
+    private const TEST_DB_NAME = 'categorytest';
+    private static ?string $driverName = null;
 
     /**
      *
      */
-    public static function setUpBeforeClass() {
+    public static function setUpBeforeClass(): void
+    {
         // connect and setup db categorytest with table categories
+        $dsn  = getenv('MODEL_ORM_TEST_DSN') ?: 'mysql:host=127.0.0.1;port=3306';
+        $user = getenv('MODEL_ORM_TEST_USER') ?: 'root';
+        $pass = getenv('MODEL_ORM_TEST_PASS') ?: '';
         try {
-            Freshsauce\Model\Model::connectDb('mysql:host=127.0.0.1;dbname=', 'root', '');
+            Freshsauce\Model\Model::connectDb($dsn, $user, $pass);
         } catch (PDOException $e) {
             if ($e->getCode() != 0) {
                 // throw it on
@@ -21,18 +28,34 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
             }
         }
 
-        $sql_setup = [
-            'DROP DATABASE IF EXISTS `categorytest`',
-            'CREATE DATABASE `categorytest`',
-            'USE `categorytest`',
-            'CREATE TABLE `categories` (
-             `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-             `name` VARCHAR(120) DEFAULT NULL,
-             `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-             `created_at` TIMESTAMP NULL DEFAULT NULL,
-             PRIMARY KEY (`id`)
-           ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
-        ];
+        self::$driverName = Freshsauce\Model\Model::driverName();
+        $sql_setup = [];
+        if (self::$driverName === 'mysql') {
+            $sql_setup = [
+                'DROP DATABASE IF EXISTS `' . self::TEST_DB_NAME . '`',
+                'CREATE DATABASE `' . self::TEST_DB_NAME . '`',
+                'USE `' . self::TEST_DB_NAME . '`',
+                'CREATE TABLE `categories` (
+                 `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                 `created_at` TIMESTAMP NULL DEFAULT NULL,
+                 PRIMARY KEY (`id`)
+               ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
+            ];
+        } elseif (self::$driverName === 'pgsql') {
+            $sql_setup = [
+                'DROP TABLE IF EXISTS "categories"',
+                'CREATE TABLE "categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL,
+                 "updated_at" TIMESTAMP NULL,
+                 "created_at" TIMESTAMP NULL
+               )',
+            ];
+        } else {
+            throw new RuntimeException('Unsupported PDO driver for tests: ' . self::$driverName);
+        }
 
         foreach ($sql_setup as $sql) {
             Freshsauce\Model\Model::execute($sql);
@@ -43,14 +66,20 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
     /**
      *
      */
-    public static function tearDownAfterClass() {
-        Freshsauce\Model\Model::execute('DROP DATABASE IF EXISTS `categorytest`');
+    public static function tearDownAfterClass(): void
+    {
+        if (self::$driverName === 'mysql') {
+            Freshsauce\Model\Model::execute('DROP DATABASE IF EXISTS `' . self::TEST_DB_NAME . '`');
+        } elseif (self::$driverName === 'pgsql') {
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "categories"');
+        }
     }
 
     /**
      * @covers ::save
      */
-    public function testCreate() {
+    public function testCreate(): void
+    {
         $_name    = 'Fiction';
         $category = new App\Model\Category(array(
             'name' => $_name
@@ -67,7 +96,8 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
     /**
      * @covers ::getById
      */
-    public function testCreateAndGetById() {
+    public function testCreateAndGetById(): void
+    {
         $_name    = 'SciFi';
         $category = new App\Model\Category(array(
             'name' => $_name
@@ -89,7 +119,8 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
     /**
      * @covers ::save
      */
-    public function testCreateAndModify() {
+    public function testCreateAndModify(): void
+    {
         $_name    = 'Literature';
         $category = new App\Model\Category(array(
             'name' => $_name
@@ -120,7 +151,8 @@ Class CategoryTest extends \PHPUnit_Framework_TestCase
      * @covers ::__callStatic
      * @covers ::fetchAllWhereMatchingSingleField
      */
-    public function testFetchAllWhere() {
+    public function testFetchAllWhere(): void
+    {
         // Create some categories
         $_names = [
             'Sports',
