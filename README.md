@@ -30,6 +30,8 @@ Requirements:
 - `ext-pdo`
 - A PDO driver such as `pdo_mysql` or `pdo_pgsql`
 
+Looking for fuller, example-led usage? See [EXAMPLE.md](EXAMPLE.md).
+
 ## Quick start
 
 Create a table:
@@ -90,6 +92,8 @@ Delete it:
 ```php
 $loaded->delete();
 ```
+
+For more end-to-end snippets, see [EXAMPLE.md](EXAMPLE.md).
 
 ## What you get
 
