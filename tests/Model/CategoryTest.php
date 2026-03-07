@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 class CategoryTest extends TestCase
 {
     private const TEST_DB_NAME = 'categorytest';
+    private const SQLITE_SEQUENCE_TABLE = 'sqlite_sequence';
     private static ?string $driverName = null;
 
     /**
@@ -53,6 +54,16 @@ class CategoryTest extends TestCase
                  "created_at" TIMESTAMP NULL
                )',
             ];
+        } elseif (self::$driverName === 'sqlite') {
+            $sql_setup = [
+                'DROP TABLE IF EXISTS `categories`',
+                'CREATE TABLE `categories` (
+                 `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                 `name` VARCHAR(120) NULL,
+                 `updated_at` TEXT NULL,
+                 `created_at` TEXT NULL
+               )',
+            ];
         } else {
             throw new RuntimeException('Unsupported PDO driver for tests: ' . self::$driverName);
         }
@@ -81,6 +92,12 @@ class CategoryTest extends TestCase
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `categories`');
         } elseif (self::$driverName === 'pgsql') {
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "categories" RESTART IDENTITY');
+        } elseif (self::$driverName === 'sqlite') {
+            Freshsauce\Model\Model::execute('DELETE FROM `categories`');
+            Freshsauce\Model\Model::execute(
+                'DELETE FROM `' . self::SQLITE_SEQUENCE_TABLE . '` WHERE `name` = ?',
+                ['categories']
+            );
         }
     }
 
