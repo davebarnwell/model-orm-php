@@ -4,6 +4,10 @@ namespace App\Model;
 
 /**
  * @method static array find_by_name($match)
+ * @method static self|null findOne_by_name($match)
+ * @method static self|null first_by_name($match)
+ * @method static self|null last_by_name($match)
+ * @method static int count_by_name($match)
  * @method static array findByName($match)
  * @method static self|null findOneByName($match)
  * @method static self|null firstByName($match)

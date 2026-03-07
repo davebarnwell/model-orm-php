@@ -484,7 +484,7 @@ class Model
     /**
      * Find records with the matching primary key
      *
-     * @param string $id
+     * @param int|string $id
      *
      * @return object[] of objects for matching records
      */
