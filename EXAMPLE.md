@@ -157,11 +157,11 @@ Category::deleteAllWhere(
 );
 ```
 
-Delete with a richer SQL fragment:
+Delete with a richer SQL fragment that works across MySQL/MariaDB and PostgreSQL:
 
 ```php
 Category::deleteAllWhere(
-    'name = ? ORDER BY name DESC LIMIT 2',
+    'id IN (SELECT id FROM categories WHERE name = ? ORDER BY name DESC LIMIT 2)',
     ['Fiction']
 );
 ```

@@ -88,35 +88,5 @@ jobs:
             echo "MODEL_ORM_TEST_PASS=postgres" >> "$GITHUB_ENV"
           fi
 
-      - name: Wait for database
-        run: |
-          if [ "${{ matrix.db }}" = "mysql" ]; then
-            ready=0
-            for i in {1..30}; do
-              if nc -z 127.0.0.1 3306; then
-                ready=1
-                break
-              fi
-              sleep 1
-            done
-            if [ "$ready" -ne 1 ]; then
-              echo "MySQL did not become ready in time" >&2
-              exit 1
-            fi
-          else
-            ready=0
-            for i in {1..30}; do
-              if nc -z 127.0.0.1 5432; then
-                ready=1
-                break
-              fi
-              sleep 1
-            done
-            if [ "$ready" -ne 1 ]; then
-              echo "PostgreSQL did not become ready in time" >&2
-              exit 1
-            fi
-          fi
-
       - name: Run tests
         run: vendor/bin/phpunit -c phpunit.xml.dist

@@ -34,7 +34,7 @@ Looking for fuller, example-led usage? See [EXAMPLE.md](EXAMPLE.md).
 
 ## Quick start
 
-Create a table:
+Create a table. This quick-start example uses PostgreSQL syntax:
 
 ```sql
 CREATE TABLE categories (
@@ -44,6 +44,8 @@ CREATE TABLE categories (
   created_at TIMESTAMP NULL
 );
 ```
+
+If you are using MySQL or MariaDB, use `INT AUTO_INCREMENT PRIMARY KEY` for the `id` column instead.
 
 Connect and define a model:
 
