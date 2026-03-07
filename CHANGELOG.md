@@ -6,3 +6,4 @@
 - Improve identifier quoting and driver-specific schema discovery.
 - Update tests to support configurable DB backends.
 - Add GitHub Actions CI matrix for PHP and database drivers.
+- Add automatic CalVer tagging and GitHub releases for merged PRs.
