@@ -1,24 +1,22 @@
-Model ORM
-=========
+Model ORM for PHP
+=================
 
 [![CI](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml/badge.svg)](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 
-`Freshsauce\Model\Model` is a lightweight ORM-style base class for PHP applications that want database-backed models without committing to a large framework. Point it at a table, extend the base class, and you get CRUD operations, dynamic finders, counters, and raw query access with very little setup.
+`Freshsauce\Model\Model` gives you the sweet spot between raw PDO and a full framework ORM: fast setup, familiar model-style workflows, and complete freedom to drop to SQL whenever you want.
 
-It is designed for projects that value straightforward PHP, direct PDO access, and a small abstraction layer that stays out of the way.
+If you want database-backed PHP models without pulling in a heavyweight stack, this library is built for that job.
 
-## Why use it?
+## Why teams pick it
 
-- Minimal setup: define a model class and table name, then start reading and writing rows.
-- PDO-first: use the ORM helpers when they help and drop down to raw SQL when they do not.
-- Familiar model flow: create, hydrate, validate, save, update, count, find, and delete.
-- Dynamic finders: call methods such as `findByName()`, `findOneByName()`, `countByName()`, and more.
-- Multi-database support: tested against MySQL/MariaDB, PostgreSQL, and SQLite.
+- Lightweight by design: point a model at a table and start reading and writing records.
+- PDO-first: keep the convenience methods, keep full access to SQL, keep control.
+- Framework-agnostic: use it in custom apps, legacy codebases, small services, or greenfield projects.
+- Productive defaults: CRUD helpers, dynamic finders, counters, hydration, and timestamp handling are ready out of the box.
+- Portable across databases: exercised against MySQL/MariaDB, PostgreSQL, and SQLite.
 
-## Installation
-
-Install from Composer:
+## Install in minutes
 
 ```bash
 composer require freshsauce/model
@@ -30,11 +28,9 @@ Requirements:
 - `ext-pdo`
 - A PDO driver such as `pdo_mysql` or `pdo_pgsql`
 
-Looking for fuller, example-led usage? See [EXAMPLE.md](EXAMPLE.md).
-
 ## Quick start
 
-Create a table. This quick-start example uses PostgreSQL syntax:
+Create a table. This example uses PostgreSQL syntax:
 
 ```sql
 CREATE TABLE categories (
@@ -45,7 +41,7 @@ CREATE TABLE categories (
 );
 ```
 
-If you are using MySQL or MariaDB, use `INT AUTO_INCREMENT PRIMARY KEY` for the `id` column instead.
+If you are using MySQL or MariaDB, use `INT AUTO_INCREMENT PRIMARY KEY` for `id` instead.
 
 Connect and define a model:
 
@@ -64,7 +60,7 @@ class Category extends Freshsauce\Model\Model
 }
 ```
 
-Create and save a record:
+Create, read, update, and delete records:
 
 ```php
 $category = new Category([
@@ -73,35 +69,19 @@ $category = new Category([
 
 $category->save();
 
-echo $category->id;
-```
-
-Read it back:
-
-```php
 $loaded = Category::getById($category->id);
-```
-
-Update it:
-
-```php
 $loaded->name = 'Science Fiction';
 $loaded->save();
-```
-
-Delete it:
-
-```php
 $loaded->delete();
 ```
 
-For more end-to-end snippets, see [EXAMPLE.md](EXAMPLE.md).
+That is the core promise of the library: minimal ceremony, direct results.
 
 ## What you get
 
-### CRUD helpers
+### Full record lifecycle helpers
 
-The base model gives you the common record lifecycle methods:
+The base model gives you the methods most applications reach for first:
 
 - `save()`
 - `insert()`
@@ -114,11 +94,11 @@ The base model gives you the common record lifecycle methods:
 - `last()`
 - `count()`
 
-Timestamp columns named `created_at` and `updated_at` are populated automatically on insert and update when present.
+If your table includes `created_at` and `updated_at`, they are populated automatically on insert and update.
 
 ### Dynamic finders and counters
 
-You can query using camelCase dynamic method names:
+Build expressive queries straight from method names:
 
 ```php
 Category::findByName('Science Fiction');
@@ -128,11 +108,11 @@ Category::lastByName(['Sci-Fi', 'Fantasy']);
 Category::countByName('Science Fiction');
 ```
 
-Legacy snake_case dynamic methods remain available during the transition, but they are deprecated and emit `E_USER_DEPRECATED` notices.
+Legacy snake_case dynamic methods still work during the transition, but they are deprecated and emit `E_USER_DEPRECATED` notices.
 
-### Custom where clauses
+### Flexible SQL when convenience methods stop helping
 
-When you need more control, fetch one or many records with SQL fragments:
+Use targeted where clauses:
 
 ```php
 $one = Category::fetchOneWhere('id = ? OR name = ?', [1, 'Science Fiction']);
@@ -140,9 +120,7 @@ $one = Category::fetchOneWhere('id = ? OR name = ?', [1, 'Science Fiction']);
 $many = Category::fetchAllWhere('name IN (?, ?)', ['Sci-Fi', 'Fantasy']);
 ```
 
-### Raw statements when needed
-
-If a query does not fit the model helpers, execute SQL directly through PDO:
+Or run raw SQL directly through PDO:
 
 ```php
 $statement = Freshsauce\Model\Model::execute(
@@ -153,9 +131,9 @@ $statement = Freshsauce\Model\Model::execute(
 $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 ```
 
-## Validation hooks
+### Validation hooks
 
-Override `validate()` in your model to enforce business rules before inserts and updates:
+Override `validate()` in your model when writes need application rules:
 
 ```php
 class Category extends Freshsauce\Model\Model
@@ -169,11 +147,11 @@ class Category extends Freshsauce\Model\Model
 }
 ```
 
-Throw an exception from `validate()` to block invalid writes.
+Throw an exception from `validate()` to block invalid inserts or updates.
 
-## Database notes
+## Database support
 
-MySQL/MariaDB example connection:
+MySQL or MariaDB:
 
 ```php
 Freshsauce\Model\Model::connectDb(
@@ -183,7 +161,7 @@ Freshsauce\Model\Model::connectDb(
 );
 ```
 
-PostgreSQL example connection:
+PostgreSQL:
 
 ```php
 Freshsauce\Model\Model::connectDb(
@@ -193,18 +171,19 @@ Freshsauce\Model\Model::connectDb(
 );
 ```
 
-SQLite is supported in the library and covered by the automated test suite alongside MySQL/MariaDB and PostgreSQL.
+SQLite is supported in the library and covered by the automated test suite.
 
-## Quality
+## Built for real projects
 
-The repository ships with:
+The repository includes:
 
-- PHPUnit coverage for the core model behavior
+- PHPUnit coverage for core model behavior
 - PHPStan static analysis
 - PHP-CS-Fixer formatting checks
-- GitHub Actions CI for pull requests and pushes
+- GitHub Actions CI for pushes and pull requests
 - Automatic `vYY.MM.DD.n` CalVer tags and GitHub releases for merged PRs to `main`
 
-## Contributing
+## Learn more
 
-Development setup, testing commands, pull request expectations, and contribution terms are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+- Want fuller usage examples? See [EXAMPLE.md](EXAMPLE.md).
+- Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md).
