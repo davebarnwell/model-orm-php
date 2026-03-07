@@ -494,7 +494,7 @@ class Model
     }
 
     /**
-     * handles calls to non-existant static methods, used to implement dynamic finder and counters ie.
+     * handles calls to non-existent static methods, used to implement dynamic finder and counters ie.
      *  findByName('tom')
      *  findByTitle('a great book')
      *  countByName('tom')
@@ -594,7 +594,7 @@ class Model
             'first' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'ASC'),
             'last' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'DESC'),
             'count' => static::countByField($resolvedFieldname, $match),
-            default => throw new \Exception(__CLASS__ . ' not such static method operation[' . $operation . ']'),
+            default => throw new \Exception(static::class . ' not such static method operation[' . $operation . ']'),
         };
     }
 

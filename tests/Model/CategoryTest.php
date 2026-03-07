@@ -320,6 +320,13 @@ class CategoryTest extends TestCase
             static fn () => App\Model\Category::__callStatic('count_by_name', [$_names])
         ));
 
+        /** @var App\Model\Category[] $categories */
+        $categories = $this->captureUserDeprecation(
+            'Dynamic snake_case model methods are deprecated. Use findByName instead of find_by_name.',
+            static fn () => App\Model\Category::__callStatic('find_by_name', [$_names])
+        );
+        $this->assertCount(count($_names), $categories);
+
         /** @var App\Model\Category|null $one */
         $one = $this->captureUserDeprecation(
             'Dynamic snake_case model methods are deprecated. Use findOneByName instead of findOne_by_name.',
@@ -327,6 +334,22 @@ class CategoryTest extends TestCase
         );
         $this->assertNotNull($one);
         $this->assertSame($_names[0], $one->name);
+
+        /** @var App\Model\Category|null $first */
+        $first = $this->captureUserDeprecation(
+            'Dynamic snake_case model methods are deprecated. Use firstByName instead of first_by_name.',
+            static fn () => App\Model\Category::__callStatic('first_by_name', [$_names])
+        );
+        $this->assertNotNull($first);
+        $this->assertContains($first->name, $_names);
+
+        /** @var App\Model\Category|null $last */
+        $last = $this->captureUserDeprecation(
+            'Dynamic snake_case model methods are deprecated. Use lastByName instead of last_by_name.',
+            static fn () => App\Model\Category::__callStatic('last_by_name', [$_names])
+        );
+        $this->assertNotNull($last);
+        $this->assertContains($last->name, $_names);
     }
 
     public function testInsertAllowsExplicitPrimaryKey(): void
