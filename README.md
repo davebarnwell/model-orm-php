@@ -13,7 +13,7 @@ It is designed for projects that value straightforward PHP, direct PDO access, a
 - Minimal setup: define a model class and table name, then start reading and writing rows.
 - PDO-first: use the ORM helpers when they help and drop down to raw SQL when they do not.
 - Familiar model flow: create, hydrate, validate, save, update, count, find, and delete.
-- Dynamic finders: call methods such as `find_by_name()`, `findOneByName()`, `count_by_name()`, and more.
+- Dynamic finders: call methods such as `findByName()`, `findOneByName()`, `countByName()`, and more.
 - Multi-database support: tested against MySQL/MariaDB and PostgreSQL, with SQLite code paths also supported.
 
 ## Installation
@@ -118,15 +118,17 @@ Timestamp columns named `created_at` and `updated_at` are populated automaticall
 
 ### Dynamic finders and counters
 
-You can query using snake_case or CamelCase method names:
+You can query using camelCase dynamic method names:
 
 ```php
-Category::find_by_name('Science Fiction');
-Category::findOne_by_name('Science Fiction');
-Category::first_by_name(['Sci-Fi', 'Fantasy']);
+Category::findByName('Science Fiction');
+Category::findOneByName('Science Fiction');
+Category::firstByName(['Sci-Fi', 'Fantasy']);
 Category::lastByName(['Sci-Fi', 'Fantasy']);
-Category::count_by_name('Science Fiction');
+Category::countByName('Science Fiction');
 ```
+
+Legacy snake_case dynamic methods remain available during the transition, but they are deprecated and emit `E_USER_DEPRECATED` notices.
 
 ### Custom where clauses
 
