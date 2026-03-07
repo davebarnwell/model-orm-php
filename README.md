@@ -14,7 +14,7 @@ It is designed for projects that value straightforward PHP, direct PDO access, a
 - PDO-first: use the ORM helpers when they help and drop down to raw SQL when they do not.
 - Familiar model flow: create, hydrate, validate, save, update, count, find, and delete.
 - Dynamic finders: call methods such as `findByName()`, `findOneByName()`, `countByName()`, and more.
-- Multi-database support: tested against MySQL/MariaDB and PostgreSQL, with SQLite code paths also supported.
+- Multi-database support: tested against MySQL/MariaDB, PostgreSQL, and SQLite.
 
 ## Installation
 
@@ -193,7 +193,7 @@ Freshsauce\Model\Model::connectDb(
 );
 ```
 
-SQLite is supported in the library code paths, but the automated test suite currently covers MySQL/MariaDB and PostgreSQL.
+SQLite is supported in the library and covered by the automated test suite alongside MySQL/MariaDB and PostgreSQL.
 
 ## Quality
 

@@ -41,9 +41,9 @@ class Model
     // sub class must also redeclare public static $_db;
 
     /**
-     * @var \PDOStatement[]
+     * @var array<int, array<string, \PDOStatement>>
      */
-    protected static $_stmt = array(); // prepared statements cache
+    protected static $_stmt = array(); // prepared statements cache keyed by PDO connection and SQL
 
     /**
      * @var string|null
@@ -226,10 +226,13 @@ class Model
      */
     public static function connectDb(string $dsn, string $username, string $password, array $driverOptions = array()): void
     {
+        $previousDb = static::$_db;
+        if ($previousDb instanceof \PDO) {
+            unset(static::$_stmt[spl_object_id($previousDb)]);
+        }
         static::$_db = new \PDO($dsn, $username, $password, $driverOptions);
         static::$_db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION); // Set Errorhandling to Exception
         static::$_identifier_quote_character = null;
-        static::$_stmt = array();
         self::$_tableColumns = array();
         static::_setup_identifier_quote_character();
     }
@@ -966,7 +969,7 @@ class Model
             return false;
         }
 
-        if ($set['sql'] === '') {
+        if (count($set['columns']) === 0) {
             if ($driver === 'sqlite' || $driver === 'sqlite2') {
                 $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' DEFAULT VALUES';
                 $st = static::execute($query);
@@ -975,7 +978,9 @@ class Model
                 $st = static::execute($query);
             }
         } else {
-            $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) . ' SET ' . $set['sql'];
+            $query = 'INSERT INTO ' . static::_quote_identifier(static::$_tableName) .
+                ' (' . implode(', ', $set['columns']) . ')' .
+                ' VALUES (' . implode(', ', $set['values']) . ')';
             $st    = static::execute($query, $set['params']);
         }
         if ($st->rowCount() == 1) {
@@ -1051,11 +1056,15 @@ class Model
         if (!$db) {
             throw new \Exception('No database connection setup');
         }
-        if (!isset(static::$_stmt[$query])) {
-            // cache prepared query if not seen before
-            static::$_stmt[$query] = $db->prepare($query);
+        $connectionId = spl_object_id($db);
+        if (!isset(static::$_stmt[$connectionId])) {
+            static::$_stmt[$connectionId] = array();
         }
-        return static::$_stmt[$query]; // return cache copy
+        if (!isset(static::$_stmt[$connectionId][$query])) {
+            // cache prepared query if not seen before
+            static::$_stmt[$connectionId][$query] = $db->prepare($query);
+        }
+        return static::$_stmt[$connectionId][$query]; // return cache copy
     }
 
     /**
