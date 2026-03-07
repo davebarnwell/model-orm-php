@@ -1,11 +1,16 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\SkippedTestSuiteError;
 
 class SqliteModelTest extends TestCase
 {
     public static function setUpBeforeClass(): void
     {
+        if (!in_array('sqlite', \PDO::getAvailableDrivers(), true)) {
+            throw new SkippedTestSuiteError('The pdo_sqlite extension is required to run SQLite-specific tests.');
+        }
+
         App\Model\SqliteCategory::connectDb('sqlite::memory:', '', '');
         App\Model\SqliteCategory::execute(
             'CREATE TABLE categories (
