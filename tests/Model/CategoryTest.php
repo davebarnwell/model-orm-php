@@ -75,9 +75,23 @@ class CategoryTest extends TestCase
         }
     }
 
-    /**
-     * @covers ::save
-     */
+    public function setUp(): void
+    {
+        if (self::$driverName === 'mysql') {
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `categories`');
+        } elseif (self::$driverName === 'pgsql') {
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "categories" RESTART IDENTITY');
+        }
+    }
+
+    private function createCategory(string $name, array $data = []): App\Model\Category
+    {
+        $category = new App\Model\Category(array_merge(['name' => $name], $data));
+        $category->save();
+
+        return $category;
+    }
+
     public function testCreate(): void
     {
         $_name    = 'Fiction';
@@ -93,17 +107,10 @@ class CategoryTest extends TestCase
         $this->assertNotEmpty($category->updated_at);
     }
 
-    /**
-     * @covers ::getById
-     */
     public function testCreateAndGetById(): void
     {
         $_name    = 'SciFi';
-        $category = new App\Model\Category(array(
-            'name' => $_name
-        ));
-
-        $category->save(); // no Id so will insert
+        $category = $this->createCategory($_name);
 
         $this->assertEquals($category->name, $_name);
         $this->assertNotEmpty($category->id);
@@ -117,26 +124,16 @@ class CategoryTest extends TestCase
         $this->assertNotEmpty($category->updated_at);
     }
 
-    /**
-     * @covers ::fetchOneWhere
-     */
     public function testFetchOneWhereReturnsNullWhenMissing(): void
     {
         $missing = App\Model\Category::fetchOneWhere('name = ?', ['__missing__' . uniqid('', true)]);
         $this->assertNull($missing);
     }
 
-    /**
-     * @covers ::save
-     */
     public function testCreateAndModify(): void
     {
         $_name    = 'Literature';
-        $category = new App\Model\Category(array(
-            'name' => $_name
-        ));
-
-        $category->save(); // no Id so will insert
+        $category = $this->createCategory($_name);
 
         $this->assertEquals($category->name, $_name);
         $this->assertNotEmpty($category->id);
@@ -157,9 +154,6 @@ class CategoryTest extends TestCase
 
     }
 
-    /**
-     * @covers ::insert
-     */
     public function testInsertWithDefaultValuesWhenNoDirtyFields(): void
     {
         $category = new App\Model\Category();
@@ -169,24 +163,14 @@ class CategoryTest extends TestCase
         $this->assertNotEmpty($category->id);
     }
 
-    /**
-     * @covers ::update
-     */
     public function testUpdateWithoutDirtyFieldsReturnsFalse(): void
     {
-        $category = new App\Model\Category(array(
-            'name' => 'Nonfiction'
-        ));
-        $category->save();
+        $category = $this->createCategory('Nonfiction');
         $category->clearDirtyFields();
 
         $this->assertFalse($category->update(false));
     }
 
-    /**
-     * @covers ::__callStatic
-     * @covers ::fetchAllWhereMatchingSingleField
-     */
     public function testFetchAllWhere(): void
     {
         // Create some categories
@@ -208,12 +192,108 @@ class CategoryTest extends TestCase
         $this->assertCount(count($_names), $categories);
     }
 
-    /**
-     * @covers ::__callStatic
-     * @covers ::fetchAllWhereMatchingSingleField
-     * @covers ::fetchOneWhereMatchingSingleField
-     * @covers ::countAllWhere
-     */
+    public function testModelStateHelpers(): void
+    {
+        $category = new App\Model\Category();
+        $category->clearDirtyFields();
+
+        $this->assertTrue($category->hasData());
+        $this->assertTrue($category->dataPresent());
+        $this->assertTrue(isset($category->name));
+        $this->assertNull($category->name);
+        $this->assertFalse($category->isFieldDirty('name'));
+
+        $category->name = 'History';
+        $this->assertTrue($category->isFieldDirty('name'));
+
+        $data = $category->toArray();
+        $this->assertSame('History', $data['name']);
+        $this->assertSame(['id', 'name', 'updated_at', 'created_at'], $category->__sleep());
+
+        $category->clear();
+        $this->assertNull($category->name);
+        $this->assertFalse($category->isFieldDirty('name'));
+    }
+
+    public function testMagicGetThrowsForMissingDataAndUnknownField(): void
+    {
+        $reflection = new ReflectionClass(App\Model\Category::class);
+        /** @var App\Model\Category $categoryWithoutConstructor */
+        $categoryWithoutConstructor = $reflection->newInstanceWithoutConstructor();
+
+        $this->assertFalse($categoryWithoutConstructor->hasData());
+
+        try {
+            $categoryWithoutConstructor->dataPresent();
+            $this->fail('Expected missing data exception.');
+        } catch (Exception $exception) {
+            $this->assertSame('No data', $exception->getMessage());
+        }
+
+        $category = new App\Model\Category();
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Undefined property via __get(): unknown_field');
+        $category->__get('unknown_field');
+    }
+
+    public function testRecordLifecycleHelpers(): void
+    {
+        $first = $this->createCategory('Alpha');
+        $second = $this->createCategory('Beta');
+        $third = $this->createCategory('Gamma');
+
+        $this->assertNotNull($first->id);
+        $this->assertNotNull($second->id);
+        $this->assertNotNull($third->id);
+
+        $this->assertSame(3, App\Model\Category::count());
+        $this->assertSame($first->id, App\Model\Category::first()?->id);
+        $this->assertSame($third->id, App\Model\Category::last()?->id);
+
+        /** @var App\Model\Category[] $found */
+        $found = App\Model\Category::find((int) $second->id);
+        $this->assertCount(1, $found);
+        $this->assertSame($second->id, $found[0]->id);
+
+        $matching = App\Model\Category::fetchAllWhere('name IN (?, ?)', ['Alpha', 'Gamma']);
+        $this->assertCount(2, $matching);
+
+        $this->assertTrue($third->delete());
+        $this->assertTrue(App\Model\Category::deleteById((int) $second->id));
+        $this->assertFalse(App\Model\Category::deleteById(999999));
+
+        $statement = App\Model\Category::deleteAllWhere('name = ?', ['Alpha']);
+        $this->assertSame(1, $statement->rowCount());
+        $this->assertSame(0, App\Model\Category::count());
+    }
+
+    public function testDynamicFindersSnakeCase(): void
+    {
+        $_names = [
+            'Snake_' . uniqid('a_', true),
+            'Snake_' . uniqid('b_', true),
+        ];
+        foreach ($_names as $_name) {
+            $this->createCategory($_name);
+        }
+
+        $one = App\Model\Category::findOne_by_name($_names[0]);
+        $this->assertNotNull($one);
+        $this->assertSame($_names[0], $one->name);
+
+        $first = App\Model\Category::first_by_name($_names);
+        $this->assertNotNull($first);
+        $this->assertContains($first->name, $_names);
+
+        $last = App\Model\Category::last_by_name($_names);
+        $this->assertNotNull($last);
+        $this->assertContains($last->name, $_names);
+
+        $count = App\Model\Category::count_by_name($_names);
+        $this->assertSame(count($_names), $count);
+    }
+
     public function testDynamicFindersCamelCase(): void
     {
         $_names = [
@@ -244,5 +324,32 @@ class CategoryTest extends TestCase
 
         $count = App\Model\Category::countByName($_names);
         $this->assertEquals(count($_names), $count);
+    }
+
+    public function testInsertAllowsExplicitPrimaryKey(): void
+    {
+        $category = new App\Model\Category([
+            'id' => 999,
+            'name' => 'With explicit id',
+        ]);
+
+        $this->assertTrue($category->insert(false, true));
+        $this->assertSame(999, (int) $category->id);
+        $this->assertSame(999, (int) App\Model\Category::getById(999)?->id);
+    }
+
+    public function testUtilityHelpers(): void
+    {
+        $this->assertSame('?,?,?', App\Model\Category::createInClausePlaceholders([1, 2, 3]));
+        $this->assertSame('1970-01-01 00:00:00', App\Model\Category::datetimeToMysqldatetime('not-a-date'));
+        $this->assertSame('2023-11-14 22:13:20', App\Model\Category::datetimeToMysqldatetime(1700000000));
+    }
+
+    public function testUnknownDynamicMethodThrows(): void
+    {
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Freshsauce\Model\Model not such static method[doesNotExist]');
+
+        App\Model\Category::__callStatic('doesNotExist', ['value']);
     }
 }

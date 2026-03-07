@@ -6,6 +6,28 @@ on:
   pull_request:
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          extensions: pdo, pdo_mysql, pdo_pgsql
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Static analysis
+        run: vendor/bin/phpstan analyse -c phpstan.neon
+
+      - name: Format check
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -21,6 +43,12 @@ jobs:
           - "3306:3306"
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: "1"
+          MYSQL_ROOT_HOST: "%"
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
       postgres:
         image: postgres:16
         ports:
@@ -29,6 +57,11 @@ jobs:
           POSTGRES_DB: categorytest
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd="pg_isready -U postgres -d categorytest"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
 
     steps:
       - uses: actions/checkout@v4
@@ -37,16 +70,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          coverage: none
           extensions: pdo, pdo_mysql, pdo_pgsql
 
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress
-
-      - name: Static analysis
-        run: vendor/bin/phpstan analyse -c phpstan.neon
-
-      - name: Format check
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+        run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Configure DB env
         run: |
@@ -63,15 +91,31 @@ jobs:
       - name: Wait for database
         run: |
           if [ "${{ matrix.db }}" = "mysql" ]; then
+            ready=0
             for i in {1..30}; do
-              nc -z 127.0.0.1 3306 && break
+              if nc -z 127.0.0.1 3306; then
+                ready=1
+                break
+              fi
               sleep 1
             done
+            if [ "$ready" -ne 1 ]; then
+              echo "MySQL did not become ready in time" >&2
+              exit 1
+            fi
           else
+            ready=0
             for i in {1..30}; do
-              nc -z 127.0.0.1 5432 && break
+              if nc -z 127.0.0.1 5432; then
+                ready=1
+                break
+              fi
               sleep 1
             done
+            if [ "$ready" -ne 1 ]; then
+              echo "PostgreSQL did not become ready in time" >&2
+              exit 1
+            fi
           fi
 
       - name: Run tests

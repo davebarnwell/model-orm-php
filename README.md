@@ -1,7 +1,8 @@
 Model ORM
 =========
 
-[![Build Status](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/badges/build.png?b=master)](https://scrutinizer-ci.com/g/freshsauce/model-orm-php/build-status/master)
+[![CI](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml/badge.svg)](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml)
+[![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 
 PHP Model class which provides:
 
