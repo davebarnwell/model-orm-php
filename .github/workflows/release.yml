@@ -32,6 +32,7 @@ jobs:
         id: calver
         env:
           MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          MERGED_AT: ${{ github.event.pull_request.merged_at }}
         run: |
           set -euo pipefail
 
@@ -39,13 +40,13 @@ jobs:
             git tag --points-at "$MERGE_COMMIT_SHA" |
             grep -E '^v[0-9]{2}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$' |
             sort -V |
-            head -n 1 || true
+            tail -n 1 || true
           )"
 
           if [ -n "$existing_tag" ]; then
             tag="$existing_tag"
           else
-            base="$(date -u +'%y.%m.%d')"
+            base="$(date -u -d "$MERGED_AT" +'%y.%m.%d')"
             max_suffix=0
 
             while IFS= read -r existing; do
@@ -72,8 +73,14 @@ jobs:
           set -euo pipefail
 
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists on origin"
-            exit 0
+            remote_sha="$(git rev-list -n 1 "$TAG")"
+            if [ "$remote_sha" = "$MERGE_COMMIT_SHA" ]; then
+              echo "Tag $TAG already exists on origin and points to the expected commit"
+              exit 0
+            fi
+
+            echo "Error: Tag $TAG already exists on origin but points to $remote_sha instead of $MERGE_COMMIT_SHA"
+            exit 1
           fi
 
           git config user.name "github-actions[bot]"
