@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >
+      github.event.pull_request.merged == true &&
+      (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags origin
+
+      - name: Determine CalVer tag
+        id: calver
+        env:
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          MERGED_AT: ${{ github.event.pull_request.merged_at }}
+        run: |
+          set -euo pipefail
+
+          existing_tag="$(
+            git tag --points-at "$MERGE_COMMIT_SHA" |
+            grep -E '^v[0-9]{2}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$' |
+            sort -V |
+            tail -n 1 || true
+          )"
+
+          if [ -n "$existing_tag" ]; then
+            tag="$existing_tag"
+          else
+            base="$(date -u -d "$MERGED_AT" +'%y.%m.%d')"
+            max_suffix=0
+
+            while IFS= read -r existing; do
+              suffix="${existing#v$base.}"
+              if ! printf '%s' "$suffix" | grep -Eq '^[0-9]+$'; then
+                continue
+              fi
+
+              if [ "$suffix" -gt "$max_suffix" ]; then
+                max_suffix="$suffix"
+              fi
+            done < <(git tag -l "v$base.*" | sort -V)
+
+            tag="v$base.$((max_suffix + 1))"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        env:
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          TAG: ${{ steps.calver.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            remote_sha="$(git rev-list -n 1 "$TAG")"
+            if [ "$remote_sha" = "$MERGE_COMMIT_SHA" ]; then
+              echo "Tag $TAG already exists on origin and points to the expected commit"
+              exit 0
+            fi
+
+            echo "Error: Tag $TAG already exists on origin but points to $remote_sha instead of $MERGE_COMMIT_SHA"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$MERGE_COMMIT_SHA" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          TAG: ${{ steps.calver.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+
+          gh release create "$TAG" \
+            --target "$MERGE_COMMIT_SHA" \
+            --generate-notes \
+            --title "$TAG"
