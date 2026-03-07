@@ -1147,7 +1147,7 @@ class Model
     protected static function supportsUpdateLimit()
     {
         $driver = static::getDriverName();
-        return ($driver === 'mysql' || $driver === 'sqlite' || $driver === 'sqlite2');
+        return ($driver === 'mysql');
     }
 
     /**
@@ -1159,7 +1159,7 @@ class Model
     protected static function supportsDeleteLimit()
     {
         $driver = static::getDriverName();
-        return ($driver === 'mysql' || $driver === 'sqlite' || $driver === 'sqlite2');
+        return ($driver === 'mysql');
     }
 
     /**

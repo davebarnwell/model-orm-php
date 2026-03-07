@@ -17,7 +17,7 @@ jobs:
         with:
           php-version: "8.3"
           coverage: none
-          extensions: pdo, pdo_mysql, pdo_pgsql
+          extensions: pdo, pdo_mysql, pdo_pgsql, pdo_sqlite
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         php: ["8.3", "8.4"]
-        db: ["mysql", "postgres"]
+        db: ["mysql", "postgres", "sqlite"]
 
     services:
       mysql:
@@ -71,7 +71,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-          extensions: pdo, pdo_mysql, pdo_pgsql
+          extensions: pdo, pdo_mysql, pdo_pgsql, pdo_sqlite
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -82,10 +82,14 @@ jobs:
             echo "MODEL_ORM_TEST_DSN=mysql:host=127.0.0.1;port=3306" >> "$GITHUB_ENV"
             echo "MODEL_ORM_TEST_USER=root" >> "$GITHUB_ENV"
             echo "MODEL_ORM_TEST_PASS=" >> "$GITHUB_ENV"
-          else
+          elif [ "${{ matrix.db }}" = "postgres" ]; then
             echo "MODEL_ORM_TEST_DSN=pgsql:host=127.0.0.1;port=5432;dbname=categorytest" >> "$GITHUB_ENV"
             echo "MODEL_ORM_TEST_USER=postgres" >> "$GITHUB_ENV"
             echo "MODEL_ORM_TEST_PASS=postgres" >> "$GITHUB_ENV"
+          else
+            echo "MODEL_ORM_TEST_DSN=sqlite::memory:" >> "$GITHUB_ENV"
+            echo "MODEL_ORM_TEST_USER=" >> "$GITHUB_ENV"
+            echo "MODEL_ORM_TEST_PASS=" >> "$GITHUB_ENV"
           fi
 
       - name: Run tests
