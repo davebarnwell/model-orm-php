@@ -248,13 +248,13 @@ class CategoryTest extends TestCase
         $this->assertNotNull($third->id);
 
         $this->assertSame(3, App\Model\Category::count());
-        $this->assertSame($first->id, App\Model\Category::first()?->id);
-        $this->assertSame($third->id, App\Model\Category::last()?->id);
+        $this->assertSame((int) $first->id, (int) App\Model\Category::first()?->id);
+        $this->assertSame((int) $third->id, (int) App\Model\Category::last()?->id);
 
         /** @var App\Model\Category[] $found */
         $found = App\Model\Category::find((int) $second->id);
         $this->assertCount(1, $found);
-        $this->assertSame($second->id, $found[0]->id);
+        $this->assertSame((int) $second->id, (int) $found[0]->id);
 
         $matching = App\Model\Category::fetchAllWhere('name IN (?, ?)', ['Alpha', 'Gamma']);
         $this->assertCount(2, $matching);
