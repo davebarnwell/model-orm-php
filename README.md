@@ -4,49 +4,35 @@ Model ORM
 [![CI](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml/badge.svg)](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 
-PHP Model class which provides:
+`Freshsauce\Model\Model` is a lightweight ORM-style base class for PHP applications that want database-backed models without committing to a large framework. Point it at a table, extend the base class, and you get CRUD operations, dynamic finders, counters, and raw query access with very little setup.
 
-* table column/property mapping
-* CRUD operations
-* dynamic finders and counters
-* raw queries with escaped parameters
-* results as instances of the Model class
-* exceptions on query error
+It is designed for projects that value straightforward PHP, direct PDO access, and a small abstraction layer that stays out of the way.
 
-Requirements & support
-----------------------
+## Why use it?
 
-* PHP >= 8.3
-* PDO with MySQL/MariaDB or PostgreSQL drivers
-* SQLite is supported in code paths but not covered by tests
+- Minimal setup: define a model class and table name, then start reading and writing rows.
+- PDO-first: use the ORM helpers when they help and drop down to raw SQL when they do not.
+- Familiar model flow: create, hydrate, validate, save, update, count, find, and delete.
+- Dynamic finders: call methods such as `find_by_name()`, `findOneByName()`, `count_by_name()`, and more.
+- Multi-database support: tested against MySQL/MariaDB and PostgreSQL, with SQLite code paths also supported.
 
-Usage
-=====
+## Installation
 
-With a MySQL database on localhost:
+Install from Composer:
 
-```sql
-CREATE DATABASE categorytest;
-CREATE TABLE `categories` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(120) DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `created_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+```bash
+composer require freshsauce/model
 ```
 
-```php
-require_once('vendor/autoload.php');
-Freshsauce\Model\Model::connectDb('mysql:dbname=categorytest;host=127.0.0.1', 'root', '');
+Requirements:
 
-// minimum model definition
-class Category extends Freshsauce\Model\Model {
-  static protected $_tableName = 'categories';
-}
-```
+- PHP `8.3+`
+- `ext-pdo`
+- A PDO driver such as `pdo_mysql` or `pdo_pgsql`
 
-PostgreSQL schema and connection:
+## Quick start
+
+Create a table:
 
 ```sql
 CREATE TABLE categories (
@@ -57,230 +43,159 @@ CREATE TABLE categories (
 );
 ```
 
-```php
-Freshsauce\Model\Model::connectDb('pgsql:host=127.0.0.1;port=5432;dbname=categorytest', 'postgres', 'postgres');
-```
-
-Testing
-=======
-
-Run PHPUnit with optional environment overrides for the DB connection:
-
-```
-MODEL_ORM_TEST_DSN=mysql:host=127.0.0.1;port=3306
-MODEL_ORM_TEST_USER=root
-MODEL_ORM_TEST_PASS=
-
-vendor/bin/phpunit -c phpunit.xml.dist
-```
-
-Static analysis:
-
-```
-vendor/bin/phpstan analyse -c phpstan.neon
-```
-
-Save & Update records
-=====================
+Connect and define a model:
 
 ```php
-$newCategory = new Category(array(
-  'name' => 'test'
-));
-$newCategory->save();
+require_once 'vendor/autoload.php';
+
+Freshsauce\Model\Model::connectDb(
+    'pgsql:host=127.0.0.1;port=5432;dbname=categorytest',
+    'postgres',
+    'postgres'
+);
+
+class Category extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'categories';
+}
 ```
 
-as Id is not set inserts the data as a new table row, `$newCategory->id` is set that of the row inserted post insert
+Create and save a record:
 
 ```php
-$newCategory->name = 'changed name';
-$newCategory->save();
+$category = new Category([
+    'name' => 'Sci-Fi',
+]);
+
+$category->save();
+
+echo $category->id;
 ```
 
-Now updates existing record
+Read it back:
 
 ```php
-new Category(array(
-  'name' => 'second test'
-))->save();
+$loaded = Category::getById($category->id);
 ```
 
-Explicit `->insert()` and `->update()` methods are available. `->save()` is a wrapper around these.
-If no dirty fields are present, `insert()` uses DEFAULT VALUES and `update()` returns false.
-
-All methods call `->validate()` before carrying out their operation. To add your own validation, override this method and throw an Exception on validation error.
-
-Find a single record by primary key
-===================================
-
-Returns an object for the matching row, or null if not found.
+Update it:
 
 ```php
-$cat = Category::getById(1);
+$loaded->name = 'Science Fiction';
+$loaded->save();
 ```
 
-Delete record(s)
-==================
-
-Via an instance method
+Delete it:
 
 ```php
-$cat = Category::getById(1);
-$cat?->delete();
+$loaded->delete();
 ```
 
-OR a Class method (primary key deletes only)
+## What you get
+
+### CRUD helpers
+
+The base model gives you the common record lifecycle methods:
+
+- `save()`
+- `insert()`
+- `update()`
+- `delete()`
+- `deleteById()`
+- `deleteAllWhere()`
+- `getById()`
+- `first()`
+- `last()`
+- `count()`
+
+Timestamp columns named `created_at` and `updated_at` are populated automatically on insert and update when present.
+
+### Dynamic finders and counters
+
+You can query using snake_case or CamelCase method names:
 
 ```php
-Category::deleteById(1);
-```
-    
-OR  all records matching a where clause
-
-```php
-Category::deleteAllWhere('name = ?', array('changed name'));
-```
-    
-OR  all records matching a where clause, specifying order and limits with more regular SQL
-
-```php
-Category::deleteAllWhere('name = ? ORDER BY name DESC LIMIT 2', array('changed name'));
-```
-
-Dynamic field name finders & counters
-=====================================
-
-Return an object for the first matching the name
-
-```php
-Category::findOne_by_name('changed name');
-```
-
-CamelCase alternatives are also supported:
-
-```php
-Category::findOneByName('changed name');
+Category::find_by_name('Science Fiction');
+Category::findOne_by_name('Science Fiction');
+Category::first_by_name(['Sci-Fi', 'Fantasy']);
+Category::lastByName(['Sci-Fi', 'Fantasy']);
+Category::count_by_name('Science Fiction');
 ```
 
-Return an object for the first match from the names
+### Custom where clauses
+
+When you need more control, fetch one or many records with SQL fragments:
 
 ```php
-Category::findOne_by_name(array('changed name', 'second test'));
+$one = Category::fetchOneWhere('id = ? OR name = ?', [1, 'Science Fiction']);
+
+$many = Category::fetchAllWhere('name IN (?, ?)', ['Sci-Fi', 'Fantasy']);
 ```
 
-Return an array of objects that match the name
+### Raw statements when needed
+
+If a query does not fit the model helpers, execute SQL directly through PDO:
 
 ```php
-Category::find_by_name('changed name');
+$statement = Freshsauce\Model\Model::execute(
+    'SELECT * FROM categories WHERE id > ?',
+    [10]
+);
+
+$rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 ```
 
+## Validation hooks
+
+Override `validate()` in your model to enforce business rules before inserts and updates:
+
 ```php
-Category::findByName('changed name');
+class Category extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'categories';
+
+    public static function validate()
+    {
+        return true;
+    }
+}
 ```
 
-Return an array of objects that match the names
+Throw an exception from `validate()` to block invalid writes.
+
+## Database notes
+
+MySQL/MariaDB example connection:
 
 ```php
-Category::find_by_name(array('changed name', 'second test'));
-```
-
-Return the first record by ascending field 'name' as a Category object
-
-```php
-Category::first_by_name('john');  // can also pass an array of values to match
-```
-
-Return the last record in the table when sorted by ascending field 'name' as a Category object
-
-```php
-Category::last_by_name('john');   // can also pass an array of values to match
-```
-
-Return a count of records that match the name
-
-```php
-Category::count_by_name('changed name');
-```
-
-Return a count of records that match a set of values
-
-```php
-Category::count_by_name(array('changed name', 'second test'));
-```
-
-First, last & Count
-===================
-
-return the first record by ascending primary key as a Category object (or null)
-
-```php
-Category::first();
-```
-
-return the last record in the table when sorted by ascending primary key as a Category object (or null)
-
-```php
-Category::last();
-```
-
-Return the number of rows in the table
-
-```php
-Category::count();
-```
-
-Arbitrary Statements
-====================
-
-run an arbitrary statement returning a PDO statement handle to issue fetch etc... on
-
-```php
-$st = Freshsauce\Model\Model::execute(
-  'SELECT * FROM categories WHERE id = ? AND id = ? AND id > ?',
-  array(1, 2, 6)
+Freshsauce\Model\Model::connectDb(
+    'mysql:host=127.0.0.1;port=3306;dbname=categorytest',
+    'root',
+    ''
 );
 ```
 
-Find One Or All
-===============
-
-Custom SQL after the WHERE keyword returning the first match or all matches as Model instances.
-`fetchOneWhere()` returns null when no rows match.
-
-fetch one Category object with a custom WHERE ... clause
+PostgreSQL example connection:
 
 ```php
-$cat = Category::fetchOneWhere('id = ? OR name = ?', array(1, 'test'));
+Freshsauce\Model\Model::connectDb(
+    'pgsql:host=127.0.0.1;port=5432;dbname=categorytest',
+    'postgres',
+    'postgres'
+);
 ```
 
-Fetch array of Category objects with a custom WHERE ... clause
+SQLite is supported in the library code paths, but the automated test suite currently covers MySQL/MariaDB and PostgreSQL.
 
-```php
-$cat = Category::fetchAllWhere('id = ? OR name = ?', array(1, 'second test'));
-```
-    
-Fetch array of Category objects, as above but this time getting the second one if it exists ordered by ascending name
+## Quality
 
-```php
-$cat = Category::fetchAllWhere('id = ? OR name = ? ORDER BY name ASC LIMIT 1,1', array(1, 'second test'));
-```
+The repository ships with:
 
-General SQL Helpers
-===================
+- PHPUnit coverage for the core model behavior
+- PHPStan static analysis
+- PHP-CS-Fixer formatting checks
+- GitHub Actions CI for pull requests and pushes
 
-Generate placeholders for an IN clause
+## Contributing
 
-```php
-$params = array(1, 2, 3, 4);
-$placeholders = Freshsauce\Model\Model::createInClausePlaceholders($params); // returns '?,?,?,?'
-Category::fetchAllWhere('id IN (' . $placeholders . ')', $params);
-```
-
-Take a date string or unix datetime number and return a string that can be assigned to a TIMESTAMP or DATETIME field
-date strings are parsed into a unix date via PHP's incredibly flexible strtotime()
-
-```php
-Freshsauce\Model\Model::datetimeToMysqldatetime('2012 Sept 13th 12:00');
-Freshsauce\Model\Model::datetimeToMysqldatetime('next Monday');
-Freshsauce\Model\Model::datetimeToMysqldatetime(gmdate());
-```
+Development setup, testing commands, pull request expectations, and contribution terms are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
