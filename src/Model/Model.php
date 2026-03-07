@@ -490,16 +490,16 @@ class Model
      */
     public static function find($id)
     {
-        $find_by_method = 'find_by_' . (static::$_primary_column_name);
-        return static::$find_by_method($id);
+        return static::fetchAllWhereMatchingSingleField(static::resolveFieldName(static::$_primary_column_name), $id);
     }
 
     /**
-     * handles calls to non-existant static methods, used to implement dynamic finder and counters ie.
-     *  find_by_name('tom')
-     *  find_by_title('a great book')
-     *  count_by_name('tom')
-     *  count_by_title('a great book')
+     * handles calls to non-existent static methods, used to implement dynamic finder and counters ie.
+     *  findByName('tom')
+     *  findByTitle('a great book')
+     *  countByName('tom')
+     *  countByTitle('a great book')
+     * snake_case dynamic methods remain temporarily supported and trigger a deprecation warning.
      *
      * @param string $name
      * @param array  $arguments
@@ -509,50 +509,133 @@ class Model
      */
     public static function __callStatic($name, $arguments)
     {
-        // Note: value of $name is case sensitive.
         $match = $arguments[0] ?? null;
-        if (preg_match('/^find_by_/', $name) == 1) {
-            // it's a find_by_{fieldname} dynamic method
-            $fieldname = substr($name, 8); // remove find by
-            return static::fetchAllWhereMatchingSingleField(static::resolveFieldName($fieldname), $match);
-        } elseif (preg_match('/^findOne_by_/', $name) == 1) {
-            // it's a findOne_by_{fieldname} dynamic method
-            $fieldname = substr($name, 11); // remove findOne_by_
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
-        } elseif (preg_match('/^first_by_/', $name) == 1) {
-            // it's a first_by_{fieldname} dynamic method
-            $fieldname = substr($name, 9); // remove first_by_
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
-        } elseif (preg_match('/^last_by_/', $name) == 1) {
-            // it's a last_by_{fieldname} dynamic method
-            $fieldname = substr($name, 8); // remove last_by_
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'DESC');
-        } elseif (preg_match('/^count_by_/', $name) == 1) {
-            // it's a count_by_{fieldname} dynamic method
-            $fieldname = substr($name, 9); // remove find by
-            return static::countByField(static::resolveFieldName($fieldname), $match);
-        } elseif (preg_match('/^findBy/', $name) == 1) {
-            // it's a findBy{Fieldname} dynamic method
-            $fieldname = substr($name, 6); // remove findBy
-            return static::fetchAllWhereMatchingSingleField(static::resolveFieldName($fieldname), $match);
-        } elseif (preg_match('/^findOneBy/', $name) == 1) {
-            // it's a findOneBy{Fieldname} dynamic method
-            $fieldname = substr($name, 9); // remove findOneBy
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
-        } elseif (preg_match('/^firstBy/', $name) == 1) {
-            // it's a firstBy{Fieldname} dynamic method
-            $fieldname = substr($name, 7); // remove firstBy
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'ASC');
-        } elseif (preg_match('/^lastBy/', $name) == 1) {
-            // it's a lastBy{Fieldname} dynamic method
-            $fieldname = substr($name, 6); // remove lastBy
-            return static::fetchOneWhereMatchingSingleField(static::resolveFieldName($fieldname), $match, 'DESC');
-        } elseif (preg_match('/^countBy/', $name) == 1) {
-            // it's a countBy{Fieldname} dynamic method
-            $fieldname = substr($name, 7); // remove countBy
-            return static::countByField(static::resolveFieldName($fieldname), $match);
+        $dynamicMethod = static::parseDynamicStaticMethod($name);
+        if (is_array($dynamicMethod)) {
+            if ($dynamicMethod['deprecated']) {
+                static::triggerSnakeCaseDynamicMethodDeprecation($name);
+            }
+            return static::dispatchDynamicStaticMethod($dynamicMethod['operation'], $dynamicMethod['fieldname'], $match);
         }
         throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
+    }
+
+    /**
+     * Parse supported dynamic static finder/counter names.
+     *
+     * @param string $name
+     *
+     * @return array{operation: string, fieldname: string, deprecated: bool}|null
+     */
+    protected static function parseDynamicStaticMethod(string $name): ?array
+    {
+        $camelCasePrefixes = array(
+            'findOneBy' => 'findOne',
+            'findBy' => 'findAll',
+            'firstBy' => 'first',
+            'lastBy' => 'last',
+            'countBy' => 'count',
+        );
+        foreach ($camelCasePrefixes as $prefix => $operation) {
+            if (str_starts_with($name, $prefix)) {
+                $fieldname = substr($name, strlen($prefix));
+                if ($fieldname === '') {
+                    return null;
+                }
+                return array(
+                    'operation' => $operation,
+                    'fieldname' => $fieldname,
+                    'deprecated' => false,
+                );
+            }
+        }
+
+        $snakeCasePrefixes = array(
+            'findOne_by_' => 'findOne',
+            'find_by_' => 'findAll',
+            'first_by_' => 'first',
+            'last_by_' => 'last',
+            'count_by_' => 'count',
+        );
+        foreach ($snakeCasePrefixes as $prefix => $operation) {
+            if (str_starts_with($name, $prefix)) {
+                $fieldname = substr($name, strlen($prefix));
+                if ($fieldname === '') {
+                    return null;
+                }
+                return array(
+                    'operation' => $operation,
+                    'fieldname' => $fieldname,
+                    'deprecated' => true,
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Execute a parsed dynamic static method.
+     *
+     * @param string $operation
+     * @param string $fieldname
+     * @param mixed  $match
+     *
+     * @return mixed
+     * @throws \Exception
+     */
+    protected static function dispatchDynamicStaticMethod(string $operation, string $fieldname, $match)
+    {
+        $resolvedFieldname = static::resolveFieldName($fieldname);
+
+        return match ($operation) {
+            'findAll' => static::fetchAllWhereMatchingSingleField($resolvedFieldname, $match),
+            'findOne' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'ASC'),
+            'first' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'ASC'),
+            'last' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'DESC'),
+            'count' => static::countByField($resolvedFieldname, $match),
+            default => throw new \Exception(static::class . ' not such static method operation[' . $operation . ']'),
+        };
+    }
+
+    /**
+     * Warn when a deprecated snake_case dynamic method is used.
+     *
+     * @param string $name
+     *
+     * @return void
+     */
+    protected static function triggerSnakeCaseDynamicMethodDeprecation(string $name): void
+    {
+        $replacement = static::snakeCaseDynamicMethodToCamelCase($name);
+        $message = 'Dynamic snake_case model methods are deprecated. Use ' . $replacement . ' instead of ' . $name . '.';
+        trigger_error($message, E_USER_DEPRECATED);
+    }
+
+    /**
+     * Convert a snake_case dynamic method name to the camelCase replacement.
+     *
+     * @param string $name
+     *
+     * @return string
+     */
+    protected static function snakeCaseDynamicMethodToCamelCase(string $name): string
+    {
+        $prefixMap = array(
+            'findOne_by_' => 'findOneBy',
+            'find_by_' => 'findBy',
+            'first_by_' => 'firstBy',
+            'last_by_' => 'lastBy',
+            'count_by_' => 'countBy',
+        );
+        foreach ($prefixMap as $prefix => $replacementPrefix) {
+            if (str_starts_with($name, $prefix)) {
+                $fieldname = substr($name, strlen($prefix));
+                return $replacementPrefix . static::snakeToStudly($fieldname);
+            }
+        }
+
+        return $name;
     }
 
     /**
@@ -600,6 +683,21 @@ class Model
     }
 
     /**
+     * Convert snake_case to StudlyCase for dynamic method generation.
+     *
+     * @param string $fieldname
+     *
+     * @return string
+     */
+    protected static function snakeToStudly(string $fieldname): string
+    {
+        $parts = explode('_', $fieldname);
+        $parts = array_map(static fn ($part) => ucfirst(strtolower($part)), $parts);
+
+        return implode('', $parts);
+    }
+
+    /**
      * Count records for a field with either a single value or an array of values.
      *
      * @param string $fieldname
@@ -618,9 +716,9 @@ class Model
     /**
      * find one match based on a single field and match criteria
      *
-     * @param string       $fieldname
-     * @param string|array $match
-     * @param string       $order ASC|DESC
+     * @param string $fieldname
+     * @param mixed  $match
+     * @param string $order ASC|DESC
      *
      * @return static|null object of calling class
      */
@@ -637,8 +735,8 @@ class Model
     /**
      * find multiple matches based on a single field and match criteria
      *
-     * @param string       $fieldname
-     * @param string|array $match
+     * @param string $fieldname
+     * @param mixed  $match
      *
      * @return object[] of objects of calling class
      */

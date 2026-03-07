@@ -3,16 +3,13 @@
 namespace App\Model;
 
 /**
- * @method static array find_by_name($match)
- * @method static self|null findOne_by_name($match)
- * @method static self|null first_by_name($match)
- * @method static self|null last_by_name($match)
- * @method static int count_by_name($match)
  * @method static array findByName($match)
  * @method static self|null findOneByName($match)
  * @method static self|null firstByName($match)
  * @method static self|null lastByName($match)
  * @method static int countByName($match)
+ * @method static self|null findOneByUpdatedAt($match)
+ * Legacy snake_case dynamic methods remain temporarily supported and emit deprecation notices.
  * @property int|null $id primary key
  * @property string|null $name category name
  * @property string|null $updated_at mysql datetime string
