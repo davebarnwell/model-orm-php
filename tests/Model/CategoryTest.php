@@ -186,7 +186,7 @@ class CategoryTest extends TestCase
             ));
             $category->save(); // no Id so will insert
         }
-        $categories = App\Model\Category::find_by_name($_names);
+        $categories = App\Model\Category::findByName($_names);
         $this->assertNotEmpty($categories);
         $this->assertContainsOnlyInstancesOf('App\Model\Category', $categories);
         $this->assertCount(count($_names), $categories);
@@ -268,32 +268,6 @@ class CategoryTest extends TestCase
         $this->assertSame(0, App\Model\Category::count());
     }
 
-    public function testDynamicFindersSnakeCase(): void
-    {
-        $_names = [
-            'Snake_' . uniqid('a_', true),
-            'Snake_' . uniqid('b_', true),
-        ];
-        foreach ($_names as $_name) {
-            $this->createCategory($_name);
-        }
-
-        $one = App\Model\Category::findOne_by_name($_names[0]);
-        $this->assertNotNull($one);
-        $this->assertSame($_names[0], $one->name);
-
-        $first = App\Model\Category::first_by_name($_names);
-        $this->assertNotNull($first);
-        $this->assertContains($first->name, $_names);
-
-        $last = App\Model\Category::last_by_name($_names);
-        $this->assertNotNull($last);
-        $this->assertContains($last->name, $_names);
-
-        $count = App\Model\Category::count_by_name($_names);
-        $this->assertSame(count($_names), $count);
-    }
-
     public function testDynamicFindersCamelCase(): void
     {
         $_names = [
@@ -301,10 +275,7 @@ class CategoryTest extends TestCase
             'Camel_' . uniqid('b_', true),
         ];
         foreach ($_names as $_name) {
-            $category = new App\Model\Category(array(
-                'name' => $_name
-            ));
-            $category->save();
+            $this->createCategory($_name);
         }
 
         $categories = App\Model\Category::findByName($_names);
@@ -312,7 +283,7 @@ class CategoryTest extends TestCase
 
         $one = App\Model\Category::findOneByName($_names[0]);
         $this->assertNotNull($one);
-        $this->assertEquals($_names[0], $one->name);
+        $this->assertSame($_names[0], $one->name);
 
         $first = App\Model\Category::firstByName($_names);
         $this->assertNotNull($first);
@@ -323,7 +294,39 @@ class CategoryTest extends TestCase
         $this->assertContains($last->name, $_names);
 
         $count = App\Model\Category::countByName($_names);
-        $this->assertEquals(count($_names), $count);
+        $this->assertSame(count($_names), $count);
+    }
+
+    public function testDynamicFindersCamelCaseResolveSnakeCaseColumns(): void
+    {
+        $category = $this->createCategory('Timestamp_' . uniqid('', true));
+        $one = App\Model\Category::findOneByUpdatedAt($category->updated_at);
+        $this->assertNotNull($one);
+        $this->assertSame((int) $category->id, (int) $one->id);
+    }
+
+    public function testDynamicFindersSnakeCaseEmitDeprecation(): void
+    {
+        $_names = [
+            'Snake_' . uniqid('a_', true),
+            'Snake_' . uniqid('b_', true),
+        ];
+        foreach ($_names as $_name) {
+            $this->createCategory($_name);
+        }
+
+        $this->assertSame(count($_names), $this->captureUserDeprecation(
+            'Dynamic snake_case model methods are deprecated. Use countByName instead of count_by_name.',
+            static fn () => App\Model\Category::__callStatic('count_by_name', [$_names])
+        ));
+
+        /** @var App\Model\Category|null $one */
+        $one = $this->captureUserDeprecation(
+            'Dynamic snake_case model methods are deprecated. Use findOneByName instead of findOne_by_name.',
+            static fn () => App\Model\Category::__callStatic('findOne_by_name', [$_names[0]])
+        );
+        $this->assertNotNull($one);
+        $this->assertSame($_names[0], $one->name);
     }
 
     public function testInsertAllowsExplicitPrimaryKey(): void
@@ -351,5 +354,29 @@ class CategoryTest extends TestCase
         $this->expectExceptionMessage('Freshsauce\Model\Model not such static method[doesNotExist]');
 
         App\Model\Category::__callStatic('doesNotExist', ['value']);
+    }
+
+    private function captureUserDeprecation(string $expectedMessage, callable $callback): mixed
+    {
+        $result = null;
+        $captured = null;
+
+        set_error_handler(static function (int $severity, string $message) use (&$captured): bool {
+            if ($severity !== E_USER_DEPRECATED) {
+                return false;
+            }
+            $captured = $message;
+            return true;
+        });
+
+        try {
+            $result = $callback();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame($expectedMessage, $captured);
+
+        return $result;
     }
 }
