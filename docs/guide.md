@@ -527,7 +527,7 @@ There are a few small helpers worth knowing about:
 - `createInClausePlaceholders([])` returns `NULL`
 - `datetimeToMysqldatetime($value)` converts a timestamp or date string to `Y-m-d H:i:s`
 
-`datetimeToMysqldatetime()` treats invalid date strings as Unix epoch `0`, returning `1970-01-01 00:00:00`.
+`datetimeToMysqldatetime()` treats invalid date strings as Unix epoch `0`, formatting the result in the PHP default timezone.
 
 ## Database-specific notes
 
