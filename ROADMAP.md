@@ -1,12 +1,20 @@
 # Roadmap
 
-This roadmap turns the current improvement analysis into a concrete execution plan for `freshsauce/model`.
+This roadmap tracks the improvement work for `freshsauce/model`.
 
-The sequencing is intentional:
+Current status:
+
+1. Phase 1 is complete.
+2. Phase 2 is complete.
+3. Phase 3 is complete.
+4. Phase 4 remains optional and has not been started.
+
+The sequencing remains intentional:
 
 1. Fix correctness issues before expanding the API.
 2. Improve developer ergonomics without turning the library into a heavyweight ORM.
-3. Add optional features only where they preserve the package's lightweight position.
+3. Tighten quality and portability before considering broader feature growth.
+4. Add optional features only where they preserve the package's lightweight position.
 
 ## Principles
 
@@ -16,6 +24,16 @@ The sequencing is intentional:
 - Avoid feature growth that pushes the library toward framework-scale complexity.
 
 ## Phase 1: Core correctness and safety
+
+Status: completed
+
+Outcome:
+
+- Replaced the broken serialization path with `__serialize()` / `__unserialize()` behavior and covered round-trip cases with tests.
+- Made persisted-state detection explicit so zero-like primary key values do not trigger incorrect inserts.
+- Changed invalid dynamic finder field resolution to fail fast with model-level exceptions.
+- Defined empty-array matching behavior across collection, singular, and count helpers without generating invalid SQL.
+- Introduced a library exception hierarchy and replaced generic exceptions in core failure paths.
 
 Goal: remove known edge-case bugs and make failure modes explicit.
 
@@ -120,6 +138,16 @@ Acceptance criteria:
 
 ## Phase 2: API ergonomics and typing
 
+Status: completed
+
+Outcome:
+
+- Added instance-aware validation hooks while preserving the legacy validation path for compatibility.
+- Added optional strict field handling so unknown assignments can fail loudly when enabled.
+- Added focused query helpers for existence checks, ordered fetches, and plucking values without introducing a full query builder.
+- Tightened typing with `declare(strict_types=1);` and refreshed static-analysis-friendly signatures and docs.
+- Updated public documentation to lead with the preferred camelCase API and newer validation/strict-mode behavior.
+
 Goal: make the library easier to use correctly while keeping the current lightweight style.
 
 Priority: medium
@@ -213,6 +241,15 @@ Acceptance criteria:
 
 ## Phase 3: Quality, portability, and maintenance
 
+Status: completed
+
+Outcome:
+
+- Expanded integration coverage for inherited connections, custom primary keys, metadata refresh, timestamp opt-out behavior, timestampless tables, and PostgreSQL schema-qualified tables.
+- Added `refreshTableMetadata()` so cached column metadata can be refreshed without reconnecting.
+- Normalized update success behavior for no-op writes while preserving the invariant that primary-key updates must not affect multiple rows.
+- Made UTC timestamp behavior explicit in code and documentation.
+
 Goal: make the library easier to maintain and safer across supported databases.
 
 Priority: medium
@@ -267,7 +304,7 @@ Goal: add features that help real applications, but only if they fit the package
 
 Priority: lower
 
-These should only start after Phases 1 and 2 are complete.
+Phases 1 through 3 are complete, so this is now the remaining backlog.
 
 ### Candidate 4.1: Transaction helpers
 
@@ -316,22 +353,17 @@ Recommendation:
 
 If this work is split into GitHub issues, the most practical order is:
 
-1. Replace `__sleep()` with proper serialization support.
-2. Fix zero-like primary key handling in `save()`.
-3. Make unknown dynamic fields fail fast.
-4. Define empty-array query behavior.
-5. Introduce library exception classes.
-6. Expand regression tests for the above.
-7. Convert validation to instance-aware hooks.
-8. Add strict field mode.
-9. Add focused query helpers.
-10. Tighten typing and refresh docs.
+1. Add transaction helpers.
+2. Add configurable timestamp column support.
+3. Add attribute casting.
+4. Re-evaluate whether composite keys or relationship support are warranted.
 
 ## Suggested release strategy
 
-- Release 1: all Phase 1 fixes plus regression tests.
-- Release 2: validation, strict mode, typed API cleanup, and documentation refresh.
-- Release 3: selected optional helpers such as transactions, timestamp configuration, and casting.
+- Release 1: Phase 1 correctness and exception work. Shipped.
+- Release 2: Phase 2 ergonomics, typing, and documentation updates. Shipped.
+- Release 3: Phase 3 portability and maintenance hardening. Shipped.
+- Release 4: optional feature work only if it still fits the package scope.
 
 ## Out of scope unless demand changes
 
