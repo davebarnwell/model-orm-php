@@ -87,6 +87,14 @@ $loaded->delete();
 
 That is the core promise of the library: minimal ceremony, direct results.
 
+## Documentation
+
+Use the docs based on how much detail you need:
+
+- [docs/guide.md](docs/guide.md) for setup, model definition, CRUD, querying, validation, strict fields, and database notes
+- [docs/api-reference.md](docs/api-reference.md) for method-by-method behavior and return types
+- [EXAMPLE.md](EXAMPLE.md) for shorter copy-paste examples
+
 ## What you get
 
 ### Full record lifecycle helpers
@@ -244,6 +252,7 @@ The repository includes:
 
 ## Learn more
 
+- Need fuller ORM docs? Start with [docs/guide.md](docs/guide.md) and [docs/api-reference.md](docs/api-reference.md).
 - Want to see planned improvements? See [ROADMAP.md](ROADMAP.md).
 - Want fuller usage examples? See [EXAMPLE.md](EXAMPLE.md).
 - Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md).
