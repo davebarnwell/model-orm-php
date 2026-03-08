@@ -75,14 +75,17 @@ class CategoryTest extends TestCase
                  "updated_at" TIMESTAMP NULL,
                  "created_at" TIMESTAMP NULL
                )',
+                'DROP TABLE IF EXISTS "coded_categories"',
                 'CREATE TABLE "coded_categories" (
                  "code" INTEGER PRIMARY KEY,
                  "name" VARCHAR(120) NULL
                )',
+                'DROP TABLE IF EXISTS "metadata_refresh_categories"',
                 'CREATE TABLE "metadata_refresh_categories" (
                  "id" SERIAL PRIMARY KEY,
                  "name" VARCHAR(120) NULL
                )',
+                'DROP TABLE IF EXISTS "untimed_categories"',
                 'CREATE TABLE "untimed_categories" (
                  "id" SERIAL PRIMARY KEY,
                  "name" VARCHAR(120) NULL

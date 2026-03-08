@@ -1447,13 +1447,25 @@ class Model
      */
     protected function updateSucceeded(\PDOStatement $statement): bool
     {
-        if ($statement->rowCount() > 0) {
+        $count = $statement->rowCount();
+
+        if ($count === 1) {
             return true;
         }
 
-        return static::existsWhere(
-            static::_quote_identifier(static::$_primary_column_name) . ' = ?',
-            [$this->{static::$_primary_column_name}]
+        if ($count === 0) {
+            return static::existsWhere(
+                static::_quote_identifier(static::$_primary_column_name) . ' = ?',
+                [$this->{static::$_primary_column_name}]
+            );
+        }
+
+        throw new ModelException(
+            sprintf(
+                'Update affected %d rows for %s; expected at most one row.',
+                $count,
+                static::class
+            )
         );
     }
 
