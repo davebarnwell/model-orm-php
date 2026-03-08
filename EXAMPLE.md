@@ -35,7 +35,7 @@ echo $category->created_at;
 echo $category->updated_at;
 ```
 
-`save()` inserts when the primary key is empty and updates when the primary key is present.
+`save()` inserts when the primary key is `null` and updates when the primary key is present.
 
 ## Load a record by primary key
 
@@ -93,17 +93,7 @@ $count = Category::count();
 
 ## Dynamic finders
 
-Snake_case methods:
-
-```php
-$all = Category::find_by_name('Fiction');
-$one = Category::findOne_by_name('Fiction');
-$first = Category::first_by_name(['Fiction', 'Fantasy']);
-$last = Category::last_by_name(['Fiction', 'Fantasy']);
-$count = Category::count_by_name('Fiction');
-```
-
-CamelCase alternatives:
+Preferred camelCase methods:
 
 ```php
 $all = Category::findByName('Fiction');
@@ -111,6 +101,30 @@ $one = Category::findOneByName('Fiction');
 $first = Category::firstByName(['Fiction', 'Fantasy']);
 $last = Category::lastByName(['Fiction', 'Fantasy']);
 $count = Category::countByName('Fiction');
+```
+
+Legacy snake_case dynamic methods still work during the transition, but they are deprecated and should be migrated.
+
+## Focused query helpers
+
+Check existence:
+
+```php
+$hasCategories = Category::exists();
+$hasFiction = Category::existsWhere('name = ?', ['Fiction']);
+```
+
+Fetch ordered results:
+
+```php
+$alphabetical = Category::fetchAllWhereOrderedBy('name', 'ASC');
+$latest = Category::fetchOneWhereOrderedBy('id', 'DESC');
+```
+
+Pluck one column:
+
+```php
+$names = Category::pluck('name', '', [], 'name', 'ASC', 10);
 ```
 
 ## Custom WHERE clauses
@@ -181,21 +195,43 @@ $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
 ## Validation
 
-Override `validate()` to enforce model rules before insert and update:
+Use instance-aware hooks to enforce model rules before insert and update:
 
 ```php
 class Category extends Freshsauce\Model\Model
 {
     protected static $_tableName = 'categories';
 
-    public static function validate()
+    protected function validateForSave(): void
     {
-        return true;
+        if (trim((string) $this->name) === '') {
+            throw new RuntimeException('Name is required');
+        }
     }
 }
 ```
 
-Throw an exception from `validate()` whenever your application-specific rule fails, and the write will be aborted before insert or update.
+Override `validateForInsert()` or `validateForUpdate()` when the rules are operation-specific.
+
+The legacy static `validate()` method remains supported for backward compatibility.
+
+## Strict field mode
+
+Enable strict field mode when you want unknown assignments to fail immediately instead of being silently ignored on persistence:
+
+```php
+class Category extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'categories';
+    protected static bool $_strict_fields = true;
+}
+```
+
+Or enable it temporarily:
+
+```php
+Category::useStrictFields(true);
+```
 
 ## MySQL example connection
 
