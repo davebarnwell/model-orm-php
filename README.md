@@ -149,6 +149,15 @@ class Category extends Freshsauce\Model\Model
 
 Throw an exception from `validate()` to block invalid inserts or updates.
 
+### Predictable exceptions
+
+The library now throws model-specific exceptions for common failure modes instead of generic `Exception` objects.
+
+- `Freshsauce\Model\Exception\ConnectionException` for missing database connections
+- `Freshsauce\Model\Exception\UnknownFieldException` for invalid model fields and dynamic finder columns
+- `Freshsauce\Model\Exception\InvalidDynamicMethodException` for unsupported dynamic static methods
+- `Freshsauce\Model\Exception\MissingDataException` for invalid access to uninitialized model data
+
 ## Database support
 
 MySQL or MariaDB:
@@ -185,5 +194,6 @@ The repository includes:
 
 ## Learn more
 
+- Want to see planned improvements? See [ROADMAP.md](ROADMAP.md).
 - Want fuller usage examples? See [EXAMPLE.md](EXAMPLE.md).
 - Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md).

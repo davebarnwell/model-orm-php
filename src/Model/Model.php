@@ -2,6 +2,13 @@
 
 namespace Freshsauce\Model;
 
+use Freshsauce\Model\Exception\ConfigurationException;
+use Freshsauce\Model\Exception\ConnectionException;
+use Freshsauce\Model\Exception\InvalidDynamicMethodException;
+use Freshsauce\Model\Exception\MissingDataException;
+use Freshsauce\Model\Exception\ModelException;
+use Freshsauce\Model\Exception\UnknownFieldException;
+
 /**
  * Model ORM
  *
@@ -57,12 +64,12 @@ class Model
     // objects public members are created for each table columns dynamically
 
     /**
-     * @var \stdClass all data is stored here
+     * @var \stdClass|null all data is stored here
      */
     protected $data;
 
     /**
-     * @var \stdClass whether a field value has changed (become dirty) is stored here
+     * @var \stdClass|null whether a field value has changed (become dirty) is stored here
      */
     protected $dirty;
 
@@ -102,15 +109,15 @@ class Model
 
 
     /**
-     * Returns true if data present else throws an Exception
+     * Returns true if data is present else throws MissingDataException
      *
      * @return bool
-     * @throws \Exception
+     * @throws MissingDataException
      */
     public function dataPresent()
     {
         if (!$this->hasData()) {
-            throw new \Exception('No data');
+            throw new MissingDataException('No data');
         }
 
         return true;
@@ -171,22 +178,24 @@ class Model
      * @param string $name
      *
      * @return mixed
-     * @throws \Exception
+     * @throws MissingDataException
+     * @throws UnknownFieldException
      */
     public function __get($name)
     {
-        if (!$this->hasData()) {
-            throw new \Exception("data property=$name has not been initialised", 1);
+        $data = $this->data;
+        if (!$data instanceof \stdClass) {
+            throw new MissingDataException("data property=$name has not been initialised", 1);
         }
 
-        if (property_exists($this->data, $name)) {
-            return $this->data->$name;
+        if (property_exists($data, $name)) {
+            return $data->$name;
         }
 
         $trace = debug_backtrace();
         $file = $trace[0]['file'] ?? 'unknown';
         $line = $trace[0]['line'] ?? 0;
-        throw new \Exception(
+        throw new UnknownFieldException(
             'Undefined property via __get(): ' . $name .
             ' in ' . $file .
             ' on line ' . $line,
@@ -204,7 +213,8 @@ class Model
      */
     public function __isset($name)
     {
-        if ($this->hasData() && property_exists($this->data, $name)) {
+        $data = $this->data;
+        if ($data instanceof \stdClass && property_exists($data, $name)) {
             return true;
         }
 
@@ -222,7 +232,8 @@ class Model
      * @param string $password
      * @param array  $driverOptions
      *
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public static function connectDb(string $dsn, string $username, string $password, array $driverOptions = array()): void
     {
@@ -242,7 +253,7 @@ class Model
      * (table names, column names etc).
      *
      * @return void
-     * @throws \Exception
+     * @throws ModelException
      */
     public static function _setup_identifier_quote_character(): void
     {
@@ -256,7 +267,7 @@ class Model
      * names, column names etc) by looking at the driver being used by PDO.
      *
      * @return string
-     * @throws \Exception
+     * @throws ModelException
      */
     protected static function _detect_identifier_quote_character(): string
     {
@@ -279,17 +290,18 @@ class Model
      * return the driver name for the current database connection
      *
      * @return string
-     * @throws \Exception
+     * @throws ConnectionException
+     * @throws ConfigurationException
      */
     protected static function getDriverName(): string
     {
         $db = static::$_db;
         if (!$db) {
-            throw new \Exception('No database connection setup');
+            throw new ConnectionException('No database connection setup');
         }
         $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
         if (!is_string($driver)) {
-            throw new \Exception('Unable to determine database driver');
+            throw new ConfigurationException('Unable to determine database driver');
         }
         return $driver;
     }
@@ -298,7 +310,8 @@ class Model
      * Public accessor for the current PDO driver name.
      *
      * @return string
-     * @throws \Exception
+     * @throws ConnectionException
+     * @throws ConfigurationException
      */
     public static function driverName(): string
     {
@@ -334,7 +347,7 @@ class Model
      * @param  string  $part
      *
      * @return string
-     * @throws \Exception
+     * @throws ModelException
      */
     protected static function _quote_identifier_part(string $part): string
     {
@@ -344,7 +357,7 @@ class Model
         static::_setup_identifier_quote_character();
         $quote = static::$_identifier_quote_character;
         if ($quote === null) {
-            throw new \Exception('Identifier quote character not set');
+            throw new ConfigurationException('Identifier quote character not set');
         }
         $escaped = str_replace($quote, $quote . $quote, $part);
         return $quote . $escaped . $quote;
@@ -354,7 +367,8 @@ class Model
      * Get and cache on the first call the column names associated with the current table
      *
      * @return array of column names for the current table
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function getFieldnames(): array
     {
@@ -403,7 +417,8 @@ class Model
      * @param  array  $data
      *
      * @return void
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function hydrate(array $data): void
     {
@@ -420,7 +435,8 @@ class Model
      * set all members to null that are associated with table columns
      *
      * @return void
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function clear(): void
     {
@@ -432,16 +448,38 @@ class Model
 
     /**
      * @return array
-     * @throws \Exception
      */
     public function __sleep()
     {
-        return static::getFieldnames();
+        return array('data', 'dirty');
+    }
+
+    /**
+     * @return array{data: \stdClass, dirty: \stdClass}
+     */
+    public function __serialize(): array
+    {
+        return array(
+            'data' => $this->normaliseSerializedState(isset($this->data) ? $this->data : null),
+            'dirty' => $this->normaliseSerializedState(isset($this->dirty) ? $this->dirty : null),
+        );
+    }
+
+    /**
+     * @param array{data?: mixed, dirty?: mixed} $data
+     *
+     * @return void
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->data = $this->normaliseSerializedState($data['data'] ?? null);
+        $this->dirty = $this->normaliseSerializedState($data['dirty'] ?? null);
     }
 
     /**
      * @return array
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function toArray()
     {
@@ -508,7 +546,9 @@ class Model
      * @param array  $arguments
      *
      * @return mixed int|object[]|object
-     * @throws \Exception
+     * @throws InvalidDynamicMethodException
+     * @throws \PDOException
+     * @throws ModelException
      */
     public static function __callStatic($name, $arguments)
     {
@@ -520,7 +560,7 @@ class Model
             }
             return static::dispatchDynamicStaticMethod($dynamicMethod['operation'], $dynamicMethod['fieldname'], $match);
         }
-        throw new \Exception(__CLASS__ . ' not such static method[' . $name . ']');
+        throw new InvalidDynamicMethodException(__CLASS__ . ' not such static method[' . $name . ']');
     }
 
     /**
@@ -585,7 +625,9 @@ class Model
      * @param mixed  $match
      *
      * @return mixed
-     * @throws \Exception
+     * @throws InvalidDynamicMethodException
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function dispatchDynamicStaticMethod(string $operation, string $fieldname, $match)
     {
@@ -597,7 +639,7 @@ class Model
             'first' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'ASC'),
             'last' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'DESC'),
             'count' => static::countByField($resolvedFieldname, $match),
-            default => throw new \Exception(static::class . ' not such static method operation[' . $operation . ']'),
+            default => throw new InvalidDynamicMethodException(static::class . ' not such static method operation[' . $operation . ']'),
         };
     }
 
@@ -647,7 +689,9 @@ class Model
      * @param string $fieldname
      *
      * @return string
-     * @throws \Exception
+     * @throws UnknownFieldException
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function resolveFieldName($fieldname)
     {
@@ -669,7 +713,7 @@ class Model
                 return $field;
             }
         }
-        return $fieldname;
+        throw new UnknownFieldException('Unknown field [' . $fieldname . '] for model ' . static::class);
     }
 
     /**
@@ -710,6 +754,9 @@ class Model
      */
     protected static function countByField($fieldname, $match)
     {
+        if (static::isEmptyMatchList($match)) {
+            return 0;
+        }
         if (is_array($match)) {
             return static::countAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
         }
@@ -727,6 +774,9 @@ class Model
      */
     public static function fetchOneWhereMatchingSingleField($fieldname, $match, $order)
     {
+        if (static::isEmptyMatchList($match)) {
+            return null;
+        }
         if (is_array($match)) {
             return static::fetchOneWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ') ORDER BY ' . static::_quote_identifier($fieldname) . ' ' . $order, $match);
         } else {
@@ -745,6 +795,9 @@ class Model
      */
     public static function fetchAllWhereMatchingSingleField($fieldname, $match)
     {
+        if (static::isEmptyMatchList($match)) {
+            return array();
+        }
         if (is_array($match)) {
             return static::fetchAllWhere(static::_quote_identifier($fieldname) . ' IN (' . static::createInClausePlaceholders($match) . ')', $match);
         } else {
@@ -761,6 +814,9 @@ class Model
      */
     public static function createInClausePlaceholders($params)
     {
+        if (count($params) === 0) {
+            return 'NULL';
+        }
         return implode(',', array_fill(0, count($params), '?'));
     }
 
@@ -929,7 +985,8 @@ class Model
      * @param  boolean  $allowSetPrimaryKey  if true include primary key field in insert (ie. you want to set it yourself)
      *
      * @return boolean indicating success
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function insert($autoTimestamp = true, $allowSetPrimaryKey = false)
     {
@@ -987,7 +1044,7 @@ class Model
             if ($allowSetPrimaryKey !== true) {
                 $db = static::$_db;
                 if (!$db) {
-                    throw new \Exception('No database connection setup');
+                    throw new ConnectionException('No database connection setup');
                 }
                 $this->{static::$_primary_column_name} = $db->lastInsertId();
             }
@@ -1054,7 +1111,7 @@ class Model
     {
         $db = static::$_db;
         if (!$db) {
-            throw new \Exception('No database connection setup');
+            throw new ConnectionException('No database connection setup');
         }
         $connectionId = spl_object_id($db);
         if (!isset(static::$_stmt[$connectionId])) {
@@ -1074,11 +1131,52 @@ class Model
      */
     public function save()
     {
-        if ($this->{static::$_primary_column_name}) {
+        if ($this->hasPrimaryKeyValue()) {
             return $this->update();
         } else {
             return $this->insert();
         }
+    }
+
+    /**
+     * @param mixed $state
+     *
+     * @return \stdClass
+     */
+    protected function normaliseSerializedState($state): \stdClass
+    {
+        if ($state instanceof \stdClass) {
+            return $state;
+        }
+        if (is_array($state)) {
+            return (object) $state;
+        }
+
+        return new \stdClass();
+    }
+
+    /**
+     * @return bool
+     */
+    protected function hasPrimaryKeyValue(): bool
+    {
+        $primaryKey = static::$_primary_column_name;
+        $data = $this->data;
+        if (!$data instanceof \stdClass || !property_exists($data, $primaryKey)) {
+            return false;
+        }
+
+        return $this->$primaryKey !== null;
+    }
+
+    /**
+     * @param mixed $match
+     *
+     * @return bool
+     */
+    protected static function isEmptyMatchList($match): bool
+    {
+        return is_array($match) && $match === array();
     }
 
     /**
@@ -1109,12 +1207,12 @@ class Model
          * @var array $values placeholder list for INSERT
          */
         $values = [];
-        $hasData = $this->hasData();
+        $data = $this->data;
         foreach (static::getFieldnames() as $field) {
             if ($ignorePrimary && $field == static::$_primary_column_name) {
                 continue;
             }
-            if (!$hasData || !property_exists($this->data, $field) || !$this->isFieldDirty($field)) {
+            if (!$data instanceof \stdClass || !property_exists($data, $field) || !$this->isFieldDirty($field)) {
                 continue;
             }
             $columns[] = static::_quote_identifier($field);
@@ -1142,7 +1240,7 @@ class Model
      * Determine whether the driver supports LIMIT on UPDATE.
      *
      * @return bool
-     * @throws \Exception
+     * @throws ConnectionException
      */
     protected static function supportsUpdateLimit()
     {
@@ -1154,7 +1252,7 @@ class Model
      * Determine whether the driver supports LIMIT on DELETE.
      *
      * @return bool
-     * @throws \Exception
+     * @throws ConnectionException
      */
     protected static function supportsDeleteLimit()
     {
