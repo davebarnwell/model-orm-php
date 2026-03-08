@@ -64,6 +64,24 @@ class CategoryTest extends TestCase
                  `name` VARCHAR(120) DEFAULT NULL,
                  PRIMARY KEY (`id`)
                ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
+                'CREATE TABLE `custom_timestamp_categories` (
+                 `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 `modified_on` TIMESTAMP NULL DEFAULT NULL,
+                 `created_on` TIMESTAMP NULL DEFAULT NULL,
+                 PRIMARY KEY (`id`)
+               ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
+                'CREATE TABLE `casted_categories` (
+                 `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 `quantity` INT(11) NULL,
+                 `rating` DOUBLE NULL,
+                 `is_active` TINYINT(1) NULL,
+                 `published_at` TIMESTAMP NULL DEFAULT NULL,
+                 `meta_array` TEXT NULL,
+                 `meta_object` TEXT NULL,
+                 PRIMARY KEY (`id`)
+               ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
             ];
         } elseif (self::$driverName === 'pgsql') {
             $sql_setup = [
@@ -89,6 +107,24 @@ class CategoryTest extends TestCase
                 'CREATE TABLE "untimed_categories" (
                  "id" SERIAL PRIMARY KEY,
                  "name" VARCHAR(120) NULL
+               )',
+                'DROP TABLE IF EXISTS "custom_timestamp_categories"',
+                'CREATE TABLE "custom_timestamp_categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL,
+                 "modified_on" TIMESTAMP NULL,
+                 "created_on" TIMESTAMP NULL
+               )',
+                'DROP TABLE IF EXISTS "casted_categories"',
+                'CREATE TABLE "casted_categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL,
+                 "quantity" INTEGER NULL,
+                 "rating" DOUBLE PRECISION NULL,
+                 "is_active" BOOLEAN NULL,
+                 "published_at" TIMESTAMP NULL,
+                 "meta_array" TEXT NULL,
+                 "meta_object" TEXT NULL
                )',
                 'CREATE SCHEMA "' . self::PGSQL_SCHEMA . '"',
                 'CREATE TABLE "' . self::PGSQL_SCHEMA . '"."schema_categories" (
@@ -120,6 +156,24 @@ class CategoryTest extends TestCase
                  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
                  `name` VARCHAR(120) NULL
                )',
+                'DROP TABLE IF EXISTS `custom_timestamp_categories`',
+                'CREATE TABLE `custom_timestamp_categories` (
+                 `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                 `name` VARCHAR(120) NULL,
+                 `modified_on` TEXT NULL,
+                 `created_on` TEXT NULL
+               )',
+                'DROP TABLE IF EXISTS `casted_categories`',
+                'CREATE TABLE `casted_categories` (
+                 `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                 `name` VARCHAR(120) NULL,
+                 `quantity` INTEGER NULL,
+                 `rating` REAL NULL,
+                 `is_active` INTEGER NULL,
+                 `published_at` TEXT NULL,
+                 `meta_array` TEXT NULL,
+                 `meta_object` TEXT NULL
+               )',
             ];
         } else {
             throw new RuntimeException('Unsupported PDO driver for tests: ' . self::$driverName);
@@ -144,6 +198,8 @@ class CategoryTest extends TestCase
             Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "coded_categories"');
             Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "metadata_refresh_categories"');
             Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "untimed_categories"');
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "custom_timestamp_categories"');
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "casted_categories"');
         }
     }
 
@@ -158,17 +214,23 @@ class CategoryTest extends TestCase
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `coded_categories`');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `metadata_refresh_categories`');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `untimed_categories`');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `custom_timestamp_categories`');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `casted_categories`');
         } elseif (self::$driverName === 'pgsql') {
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "categories" RESTART IDENTITY');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "coded_categories"');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "metadata_refresh_categories" RESTART IDENTITY');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "untimed_categories" RESTART IDENTITY');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "custom_timestamp_categories" RESTART IDENTITY');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "casted_categories" RESTART IDENTITY');
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "' . self::PGSQL_SCHEMA . '"."schema_categories" RESTART IDENTITY');
         } elseif (self::$driverName === 'sqlite') {
             Freshsauce\Model\Model::execute('DELETE FROM `categories`');
             Freshsauce\Model\Model::execute('DELETE FROM `coded_categories`');
             Freshsauce\Model\Model::execute('DELETE FROM `metadata_refresh_categories`');
             Freshsauce\Model\Model::execute('DELETE FROM `untimed_categories`');
+            Freshsauce\Model\Model::execute('DELETE FROM `custom_timestamp_categories`');
+            Freshsauce\Model\Model::execute('DELETE FROM `casted_categories`');
             $this->resetSqliteSequenceIfPresent();
         }
     }
@@ -176,7 +238,7 @@ class CategoryTest extends TestCase
     private function resetSqliteSequenceIfPresent(): void
     {
         try {
-            foreach (['categories', 'metadata_refresh_categories', 'untimed_categories'] as $tableName) {
+            foreach (['categories', 'metadata_refresh_categories', 'untimed_categories', 'custom_timestamp_categories', 'casted_categories'] as $tableName) {
                 Freshsauce\Model\Model::execute(
                     'DELETE FROM `' . self::SQLITE_SEQUENCE_TABLE . '` WHERE `name` = ?',
                     [$tableName]
@@ -488,6 +550,88 @@ class CategoryTest extends TestCase
         $this->assertNull($reloaded->updated_at);
     }
 
+    public function testModelConfigurationCanDisableAutomaticTimestamps(): void
+    {
+        $category = new App\Model\DisabledTimestampCategory([
+            'name' => 'Config-disabled timestamps',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertNull($category->created_at);
+        $this->assertNull($category->updated_at);
+
+        $category->name = 'Still config-disabled';
+        $this->assertTrue($category->save());
+        $this->assertNull($category->updated_at);
+
+        $reloaded = App\Model\DisabledTimestampCategory::getById((int) $category->id);
+        $this->assertNotNull($reloaded);
+        $this->assertNull($reloaded->created_at);
+        $this->assertNull($reloaded->updated_at);
+    }
+
+    public function testCustomTimestampColumnsCanBeConfiguredPerModel(): void
+    {
+        $category = new App\Model\CustomTimestampCategory([
+            'name' => 'Custom timestamps',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertNotEmpty($category->created_on);
+        $this->assertNotEmpty($category->modified_on);
+
+        $createdOn = $category->created_on;
+        $modifiedOn = $category->modified_on;
+
+        $category->name = 'Custom timestamps updated';
+        sleep(1);
+        $this->assertTrue($category->save());
+        $this->assertSame($createdOn, $category->created_on);
+        $this->assertNotSame($modifiedOn, $category->modified_on);
+
+        $reloaded = App\Model\CustomTimestampCategory::getById((int) $category->id);
+        $this->assertNotNull($reloaded);
+        $this->assertSame($category->created_on, $reloaded->created_on);
+        $this->assertSame($category->modified_on, $reloaded->modified_on);
+    }
+
+    public function testAttributeCastingPersistsAndHydratesSupportedTypes(): void
+    {
+        $publishedAt = new DateTimeImmutable('2026-03-08 15:16:17', new DateTimeZone('UTC'));
+        $category = new App\Model\CastedCategory([
+            'name' => 'Casted',
+            'quantity' => '7',
+            'rating' => '4.5',
+            'is_active' => '1',
+            'published_at' => $publishedAt,
+            'meta_array' => ['tags' => ['fiction', 'history'], 'count' => 2],
+            'meta_object' => (object) ['featured' => true, 'score' => 9],
+        ]);
+
+        $this->assertSame(7, $category->quantity);
+        $this->assertSame(4.5, $category->rating);
+        $this->assertTrue($category->is_active);
+        $this->assertInstanceOf(DateTimeImmutable::class, $category->published_at);
+        $this->assertSame('2026-03-08 15:16:17', $category->published_at->format('Y-m-d H:i:s'));
+        $this->assertIsArray($category->meta_array);
+        $this->assertIsObject($category->meta_object);
+
+        $this->assertTrue($category->save());
+
+        $reloaded = App\Model\CastedCategory::getById((int) $category->id);
+        $this->assertNotNull($reloaded);
+        $this->assertSame(7, $reloaded->quantity);
+        $this->assertSame(4.5, $reloaded->rating);
+        $this->assertTrue($reloaded->is_active);
+        $this->assertInstanceOf(DateTimeImmutable::class, $reloaded->published_at);
+        $this->assertSame('2026-03-08 15:16:17', $reloaded->published_at->format('Y-m-d H:i:s'));
+        $this->assertSame(['tags' => ['fiction', 'history'], 'count' => 2], $reloaded->meta_array);
+        $metaObject = $reloaded->meta_object;
+        $this->assertInstanceOf(stdClass::class, $metaObject);
+        $this->assertTrue($metaObject->featured);
+        $this->assertSame(9, $metaObject->score);
+    }
+
     public function testModelsWithoutTimestampColumnsSaveNormally(): void
     {
         $category = new App\Model\UntimedCategory([
@@ -743,6 +887,62 @@ class CategoryTest extends TestCase
 
         $this->assertSame('2026-03-08 12:00:00', $category->updated_at);
         $this->assertTrue($category->isFieldDirty('updated_at'));
+    }
+
+    public function testTransactionHelperCommitsOnSuccess(): void
+    {
+        /** @var int $id */
+        $id = App\Model\Category::transaction(function (): int {
+            $category = new App\Model\Category([
+                'name' => 'Transactional commit',
+            ]);
+            $category->save();
+
+            return (int) $category->id;
+        });
+
+        $this->assertSame(1, App\Model\Category::count());
+        $this->assertSame('Transactional commit', App\Model\Category::getById($id)?->name);
+    }
+
+    public function testTransactionHelperRollsBackOnFailure(): void
+    {
+        try {
+            App\Model\Category::transaction(function (): void {
+                $category = new App\Model\Category([
+                    'name' => 'Transactional rollback',
+                ]);
+                $category->save();
+
+                throw new RuntimeException('Force rollback');
+            });
+            $this->fail('Expected transaction helper to rethrow callback exceptions.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Force rollback', $exception->getMessage());
+        }
+
+        $this->assertSame(0, App\Model\Category::count());
+    }
+
+    public function testManualTransactionWrappersOperateOnCurrentConnection(): void
+    {
+        $this->assertTrue(App\Model\Category::beginTransaction());
+
+        $category = new App\Model\Category([
+            'name' => 'Manual transaction',
+        ]);
+        $this->assertTrue($category->save());
+        $this->assertTrue(App\Model\Category::rollBack());
+        $this->assertSame(0, App\Model\Category::count());
+
+        $this->assertTrue(App\Model\Category::beginTransaction());
+
+        $category = new App\Model\Category([
+            'name' => 'Manual transaction committed',
+        ]);
+        $this->assertTrue($category->save());
+        $this->assertTrue(App\Model\Category::commit());
+        $this->assertSame(1, App\Model\Category::count());
     }
 
     private function captureUserDeprecation(string $expectedMessage, callable $callback): mixed

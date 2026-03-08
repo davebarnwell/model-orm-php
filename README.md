@@ -24,6 +24,7 @@ Skip it if you need relationship graphs, migrations, or a chainable query builde
 - PDO-first: keep the convenience methods, keep full access to SQL, keep control.
 - Framework-agnostic: use it in custom apps, legacy codebases, small services, or greenfield projects.
 - Productive defaults: CRUD helpers, dynamic finders, counters, hydration, and timestamp handling are ready out of the box.
+- Practical opt-ins: transaction helpers, configurable timestamp columns, and attribute casting stay lightweight but cover common app needs.
 - Portable across databases: exercised against MySQL/MariaDB, PostgreSQL, and SQLite.
 
 ## Install in minutes
@@ -111,10 +112,71 @@ The base model gives you the methods most applications reach for first:
 - `first()`
 - `last()`
 - `count()`
+- `transaction()`
+- `beginTransaction()`
+- `commit()`
+- `rollBack()`
 
 If your table includes `created_at` and `updated_at`, they are populated automatically on insert and update.
 
 Timestamps are generated in UTC using the `Y-m-d H:i:s` format. SQLite stores those values as text, while MySQL/MariaDB and PostgreSQL accept them in timestamp-style columns.
+
+### Transactions without leaving the model
+
+Use the built-in transaction helper when several writes should succeed or fail together:
+
+```php
+Category::transaction(function (): void {
+    $first = new Category(['name' => 'Sci-Fi']);
+    $first->save();
+
+    $second = new Category(['name' => 'Fantasy']);
+    $second->save();
+});
+```
+
+If you need lower-level control, the model also exposes `beginTransaction()`, `commit()`, and `rollBack()` as thin wrappers around the current PDO connection.
+
+### Timestamp columns can be configured per model
+
+The default convention remains `created_at` and `updated_at`, but models can now opt into different column names or disable automatic timestamps entirely:
+
+```php
+class AuditLog extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'audit_logs';
+    protected static ?string $_created_at_column = 'created_on';
+    protected static ?string $_updated_at_column = 'modified_on';
+}
+
+class LegacyCategory extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'legacy_categories';
+    protected static bool $_auto_timestamps = false;
+}
+```
+
+### Attribute casting
+
+Cast common fields to application-friendly PHP types:
+
+```php
+class Product extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'products';
+
+    protected static array $_casts = [
+        'stock' => 'integer',
+        'price' => 'float',
+        'is_active' => 'boolean',
+        'published_at' => 'datetime',
+        'tags' => 'array',
+        'settings' => 'object',
+    ];
+}
+```
+
+Supported cast types are `integer`, `float`, `boolean`, `datetime`, `array`, and `object`.
 
 ### Dynamic finders and counters
 
