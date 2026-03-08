@@ -1042,8 +1042,7 @@ class Model
         string $SQLfragment = '',
         array $params = [],
         ?int $limit = null
-    ): array
-    {
+    ): array {
         $suffix = static::buildOrderAndLimitClause($orderByField, $direction, $limit);
 
         /** @var array<int, static> $results */
@@ -1066,8 +1065,7 @@ class Model
         string $direction = 'ASC',
         string $SQLfragment = '',
         array $params = []
-    ): ?static
-    {
+    ): ?static {
         /** @var static|null $result */
         $result = static::fetchWhereWithSuffix(
             $SQLfragment,
@@ -1098,8 +1096,7 @@ class Model
         ?string $orderByField = null,
         string $direction = 'ASC',
         ?int $limit = null
-    ): array
-    {
+    ): array {
         $query = 'SELECT ' . static::_quote_identifier(static::resolveFieldName($fieldname)) .
             ' FROM ' . static::_quote_identifier(static::$_tableName) .
             static::addWherePrefix($SQLfragment) .
