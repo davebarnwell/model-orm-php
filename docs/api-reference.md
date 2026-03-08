@@ -42,6 +42,8 @@ Optional. Defaults to `updated_at`. Set to a different column name to customise 
 
 Optional. Field cast map. Supported cast types are `integer`, `float`, `boolean`, `datetime`, `array`, and `object`.
 
+For `datetime`, string values are interpreted as UTC wall-time values. Prefer `DATETIME`-style columns, or ensure the connection session timezone is UTC when using database types that perform timezone conversion.
+
 ### `public static $_db`
 
 Inherited shared PDO connection. Redeclare this in a subclass only when that subclass needs an isolated connection.

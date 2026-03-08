@@ -178,6 +178,8 @@ class Product extends Freshsauce\Model\Model
 
 Supported cast types are `integer`, `float`, `boolean`, `datetime`, `array`, and `object`.
 
+`datetime` casts assume stored strings are UTC wall-time values. If you do not want implicit timezone conversion by the database, prefer `DATETIME`-style columns or ensure the connection session timezone is UTC before using `TIMESTAMP` columns.
+
 ### Dynamic finders and counters
 
 Build expressive queries straight from method names:

@@ -1286,18 +1286,29 @@ class Model
             return $callback();
         }
 
-        $db->beginTransaction();
+        if (!$db->beginTransaction()) {
+            throw new \PDOException('Failed to start transaction.');
+        }
 
         try {
             $result = $callback();
-            $db->commit();
+
+            if (!$db->commit()) {
+                try {
+                    $db->rollBack();
+                } catch (\Throwable) {
+                    // Ignore rollback failures when the transaction is already closed or rollback itself fails.
+                }
+
+                throw new \PDOException('Failed to commit transaction.');
+            }
 
             return $result;
         } catch (\Throwable $throwable) {
             try {
                 $db->rollBack();
-            } catch (\PDOException) {
-                // Ignore rollback failures when the callback already closed the transaction.
+            } catch (\Throwable) {
+                // Ignore rollback failures when the callback already closed the transaction or rollback itself fails.
             }
 
             throw $throwable;
@@ -1638,9 +1649,11 @@ class Model
      */
     protected static function newInstanceFromDatabaseRow(array $row): static
     {
-        $instance = new static();
-        $instance->hydrateFromDatabase($row);
+        $reflection = new \ReflectionClass(static::class);
+        /** @var static $instance */
+        $instance = $reflection->newInstanceWithoutConstructor();
         $instance->clearDirtyFields();
+        $instance->hydrateFromDatabase($row);
 
         return $instance;
     }
@@ -1656,9 +1669,9 @@ class Model
     {
         foreach (static::getFieldnames() as $fieldname) {
             if (array_key_exists($fieldname, $data)) {
-                $this->assignAttribute($fieldname, $data[$fieldname], true, true);
+                $this->assignAttribute($fieldname, $data[$fieldname], false, true);
             } elseif (!isset($this->$fieldname)) {
-                $this->assignAttribute($fieldname, null, true, true);
+                $this->assignAttribute($fieldname, null, false, true);
             }
         }
     }

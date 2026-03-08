@@ -77,7 +77,7 @@ class CategoryTest extends TestCase
                  `quantity` INT(11) NULL,
                  `rating` DOUBLE NULL,
                  `is_active` TINYINT(1) NULL,
-                 `published_at` TIMESTAMP NULL DEFAULT NULL,
+                 `published_at` DATETIME NULL DEFAULT NULL,
                  `meta_array` TEXT NULL,
                  `meta_object` TEXT NULL,
                  PRIMARY KEY (`id`)

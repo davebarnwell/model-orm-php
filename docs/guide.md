@@ -578,6 +578,7 @@ Notes:
 - `datetime` returns `DateTimeImmutable`
 - `array` and `object` are stored as JSON strings in the database
 - `toArray()` returns the current cast PHP values
+- `datetime` assumes stored strings are UTC wall-time values; prefer `DATETIME`-style columns or a UTC session timezone when using databases that convert `TIMESTAMP`
 
 ## Exceptions
 
