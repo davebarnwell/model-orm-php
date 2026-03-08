@@ -32,8 +32,8 @@ docker-compose up -d
 
 Default local ports:
 
-- MySQL/MariaDB on `127.0.0.1:3306`
-- PostgreSQL on `127.0.0.1:5432`
+- MySQL/MariaDB on host port `3306`
+- PostgreSQL on host port `5432`
 
 ## Running checks
 
