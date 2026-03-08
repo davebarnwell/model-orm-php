@@ -6,6 +6,7 @@ use Freshsauce\Model\Exception\ConfigurationException;
 use Freshsauce\Model\Exception\ConnectionException;
 use Freshsauce\Model\Exception\InvalidDynamicMethodException;
 use Freshsauce\Model\Exception\MissingDataException;
+use Freshsauce\Model\Exception\ModelException;
 use Freshsauce\Model\Exception\UnknownFieldException;
 
 /**
@@ -111,7 +112,7 @@ class Model
      * Returns true if data present else throws an Exception
      *
      * @return bool
-     * @throws \Exception
+     * @throws MissingDataException
      */
     public function dataPresent()
     {
@@ -177,7 +178,8 @@ class Model
      * @param string $name
      *
      * @return mixed
-     * @throws \Exception
+     * @throws MissingDataException
+     * @throws UnknownFieldException
      */
     public function __get($name)
     {
@@ -230,7 +232,8 @@ class Model
      * @param string $password
      * @param array  $driverOptions
      *
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public static function connectDb(string $dsn, string $username, string $password, array $driverOptions = array()): void
     {
@@ -250,7 +253,7 @@ class Model
      * (table names, column names etc).
      *
      * @return void
-     * @throws \Exception
+     * @throws ModelException
      */
     public static function _setup_identifier_quote_character(): void
     {
@@ -264,7 +267,7 @@ class Model
      * names, column names etc) by looking at the driver being used by PDO.
      *
      * @return string
-     * @throws \Exception
+     * @throws ModelException
      */
     protected static function _detect_identifier_quote_character(): string
     {
@@ -287,7 +290,8 @@ class Model
      * return the driver name for the current database connection
      *
      * @return string
-     * @throws \Exception
+     * @throws ConnectionException
+     * @throws ConfigurationException
      */
     protected static function getDriverName(): string
     {
@@ -306,7 +310,8 @@ class Model
      * Public accessor for the current PDO driver name.
      *
      * @return string
-     * @throws \Exception
+     * @throws ConnectionException
+     * @throws ConfigurationException
      */
     public static function driverName(): string
     {
@@ -342,7 +347,7 @@ class Model
      * @param  string  $part
      *
      * @return string
-     * @throws \Exception
+     * @throws ModelException
      */
     protected static function _quote_identifier_part(string $part): string
     {
@@ -362,7 +367,8 @@ class Model
      * Get and cache on the first call the column names associated with the current table
      *
      * @return array of column names for the current table
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function getFieldnames(): array
     {
@@ -411,7 +417,8 @@ class Model
      * @param  array  $data
      *
      * @return void
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function hydrate(array $data): void
     {
@@ -428,7 +435,8 @@ class Model
      * set all members to null that are associated with table columns
      *
      * @return void
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function clear(): void
     {
@@ -440,7 +448,8 @@ class Model
 
     /**
      * @return array
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function __sleep()
     {
@@ -471,7 +480,8 @@ class Model
 
     /**
      * @return array
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function toArray()
     {
@@ -538,7 +548,9 @@ class Model
      * @param array  $arguments
      *
      * @return mixed int|object[]|object
-     * @throws \Exception
+     * @throws InvalidDynamicMethodException
+     * @throws \PDOException
+     * @throws ModelException
      */
     public static function __callStatic($name, $arguments)
     {
@@ -615,7 +627,9 @@ class Model
      * @param mixed  $match
      *
      * @return mixed
-     * @throws \Exception
+     * @throws InvalidDynamicMethodException
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function dispatchDynamicStaticMethod(string $operation, string $fieldname, $match)
     {
@@ -677,7 +691,9 @@ class Model
      * @param string $fieldname
      *
      * @return string
-     * @throws \Exception
+     * @throws UnknownFieldException
+     * @throws \PDOException
+     * @throws ModelException
      */
     protected static function resolveFieldName($fieldname)
     {
@@ -971,7 +987,8 @@ class Model
      * @param  boolean  $allowSetPrimaryKey  if true include primary key field in insert (ie. you want to set it yourself)
      *
      * @return boolean indicating success
-     * @throws \Exception
+     * @throws \PDOException
+     * @throws ModelException
      */
     public function insert($autoTimestamp = true, $allowSetPrimaryKey = false)
     {
@@ -1225,7 +1242,7 @@ class Model
      * Determine whether the driver supports LIMIT on UPDATE.
      *
      * @return bool
-     * @throws \Exception
+     * @throws ConnectionException
      */
     protected static function supportsUpdateLimit()
     {
@@ -1237,7 +1254,7 @@ class Model
      * Determine whether the driver supports LIMIT on DELETE.
      *
      * @return bool
-     * @throws \Exception
+     * @throws ConnectionException
      */
     protected static function supportsDeleteLimit()
     {
