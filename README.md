@@ -106,6 +106,8 @@ The base model gives you the methods most applications reach for first:
 
 If your table includes `created_at` and `updated_at`, they are populated automatically on insert and update.
 
+Timestamps are generated in UTC using the `Y-m-d H:i:s` format. SQLite stores those values as text, while MySQL/MariaDB and PostgreSQL accept them in timestamp-style columns.
+
 ### Dynamic finders and counters
 
 Build expressive queries straight from method names:
@@ -156,6 +158,8 @@ $statement = Freshsauce\Model\Model::execute(
 
 $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 ```
+
+If you change a table schema at runtime and need the model to see the new columns without reconnecting, call `YourModel::refreshTableMetadata()`.
 
 ### Validation hooks
 
@@ -225,6 +229,8 @@ Freshsauce\Model\Model::connectDb(
 ```
 
 SQLite is supported in the library and covered by the automated test suite.
+
+Schema-qualified table names such as `reporting.categories` are supported for PostgreSQL models.
 
 ## Built for real projects
 

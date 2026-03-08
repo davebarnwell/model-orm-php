@@ -404,6 +404,16 @@ class Model
     }
 
     /**
+     * Refresh cached table metadata for the current model class.
+     *
+     * @return void
+     */
+    public static function refreshTableMetadata(): void
+    {
+        unset(self::$_tableColumns[static::class]);
+    }
+
+    /**
      * Split a table name into schema and table, defaulting schema to public.
      *
      * @param  string  $tableName
@@ -985,7 +995,7 @@ class Model
      * returns an array of objects of the sub-class which match the conditions
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
-     * @param array<int, mixed> $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array<int, mixed> $params optional params to be escaped and injected into the SQL query (standard PDO syntax)
      * @param bool $limitOne if true the first match will be returned
      *
      * @return array|static|null
@@ -999,7 +1009,7 @@ class Model
      * returns an array of objects of the sub-class which match the conditions
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
-     * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array  $params      optional params to be escaped and injected into the SQL query (standard PDO syntax)
      *
      * @return array object[] of objects of calling class
      */
@@ -1014,7 +1024,7 @@ class Model
      * returns an object of the sub-class which matches the conditions
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
-     * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array  $params      optional params to be escaped and injected into the SQL query (standard PDO syntax)
      *
      * @return static|null object of calling class
      */
@@ -1137,7 +1147,7 @@ class Model
      * Delete records based on an SQL conditions
      *
      * @param string $where  SQL fragment of conditions
-     * @param array  $params optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array  $params optional params to be escaped and injected into the SQL query (standard PDO syntax)
      *
      * @return \PDOStatement
      */
@@ -1207,6 +1217,16 @@ class Model
     }
 
     /**
+     * Return a UTC timestamp string suitable for the built-in timestamp columns.
+     *
+     * @return string
+     */
+    protected static function currentTimestamp(): string
+    {
+        return gmdate('Y-m-d H:i:s');
+    }
+
+    /**
      * insert a row into the database table, and update the primary key field with the one generated on insert
      *
      * @param  boolean  $autoTimestamp  true by default will set updated_at & created_at fields if present
@@ -1219,7 +1239,7 @@ class Model
     public function insert(bool $autoTimestamp = true, bool $allowSetPrimaryKey = false): bool
     {
         $pk      = static::$_primary_column_name;
-        $timeStr = gmdate('Y-m-d H:i:s');
+        $timeStr = static::currentTimestamp();
         if ($autoTimestamp && in_array('created_at', static::getFieldnames())) {
             $this->created_at = $timeStr;
         }
@@ -1291,7 +1311,7 @@ class Model
     public function update(bool $autoTimestamp = true): bool
     {
         if ($autoTimestamp && in_array('updated_at', static::getFieldnames())) {
-            $this->updated_at = gmdate('Y-m-d H:i:s');
+            $this->updated_at = static::currentTimestamp();
         }
         $this->runUpdateValidation();
         $set             = $this->setString();
@@ -1305,10 +1325,11 @@ class Model
             $query,
             $set['params']
         );
-        if ($st->rowCount() == 1) {
+        if ($this->updateSucceeded($st)) {
             $this->clearDirtyFields();
+            return true;
         }
-        return ($st->rowCount() == 1);
+        return false;
     }
 
     /**
@@ -1415,6 +1436,25 @@ class Model
         }
 
         return $this->$primaryKey !== null;
+    }
+
+    /**
+     * Determine whether an update succeeded even when the driver reports zero changed rows.
+     *
+     * @param \PDOStatement $statement
+     *
+     * @return bool
+     */
+    protected function updateSucceeded(\PDOStatement $statement): bool
+    {
+        if ($statement->rowCount() > 0) {
+            return true;
+        }
+
+        return static::existsWhere(
+            static::_quote_identifier(static::$_primary_column_name) . ' = ?',
+            [$this->{static::$_primary_column_name}]
+        );
     }
 
     /**
