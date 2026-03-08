@@ -25,7 +25,18 @@ class SqliteModelTest extends TestCase
     protected function setUp(): void
     {
         App\Model\SqliteCategory::execute('DELETE FROM `categories`');
-        App\Model\SqliteCategory::execute('DELETE FROM sqlite_sequence WHERE name = ?', ['categories']);
+        $this->resetSqliteSequenceIfPresent();
+    }
+
+    private function resetSqliteSequenceIfPresent(): void
+    {
+        try {
+            App\Model\SqliteCategory::execute('DELETE FROM sqlite_sequence WHERE name = ?', ['categories']);
+        } catch (\PDOException $e) {
+            if (strpos($e->getMessage(), 'no such table: sqlite_sequence') === false) {
+                throw $e;
+            }
+        }
     }
 
     public function testSqliteInsertWithDirtyFields(): void

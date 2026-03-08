@@ -181,7 +181,7 @@ The repository includes:
 - PHPStan static analysis
 - PHP-CS-Fixer formatting checks
 - GitHub Actions CI for pushes and pull requests
-- Automatic `vYY.MM.DD.n` CalVer tags and GitHub releases for merged PRs to `main`
+- Automatic `vYY.MM.DD.n` CalVer tags and GitHub releases for pushes to `main`
 
 ## Learn more
 

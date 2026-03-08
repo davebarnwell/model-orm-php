@@ -94,10 +94,21 @@ class CategoryTest extends TestCase
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "categories" RESTART IDENTITY');
         } elseif (self::$driverName === 'sqlite') {
             Freshsauce\Model\Model::execute('DELETE FROM `categories`');
+            $this->resetSqliteSequenceIfPresent();
+        }
+    }
+
+    private function resetSqliteSequenceIfPresent(): void
+    {
+        try {
             Freshsauce\Model\Model::execute(
                 'DELETE FROM `' . self::SQLITE_SEQUENCE_TABLE . '` WHERE `name` = ?',
                 ['categories']
             );
+        } catch (\PDOException $e) {
+            if (strpos($e->getMessage(), 'no such table: ' . self::SQLITE_SEQUENCE_TABLE) === false) {
+                throw $e;
+            }
         }
     }
 
