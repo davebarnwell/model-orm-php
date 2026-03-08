@@ -80,6 +80,7 @@ class Category extends Freshsauce\Model\Model
     protected static $_tableName = 'categories';
     protected static $_primary_column_name = 'id';
     protected static bool $_strict_fields = false;
+    protected static bool $_auto_timestamps = true;
 }
 ```
 
@@ -88,6 +89,10 @@ Available configuration members:
 - `protected static $_tableName`: required; the database table to use
 - `protected static $_primary_column_name`: defaults to `id`
 - `protected static bool $_strict_fields`: defaults to `false`
+- `protected static bool $_auto_timestamps`: defaults to `true`
+- `protected static ?string $_created_at_column`: defaults to `created_at`
+- `protected static ?string $_updated_at_column`: defaults to `updated_at`
+- `protected static array $_casts`: optional field cast map
 - `public static $_db`: only redeclare this when a subclass needs its own isolated connection
 
 Custom primary keys are supported:
@@ -159,8 +164,8 @@ $category->insert();
 
 Notes:
 
-- if `created_at` exists, `insert()` sets it automatically
-- if `updated_at` exists, `insert()` sets it automatically
+- if the configured created timestamp column exists, `insert()` sets it automatically
+- if the configured updated timestamp column exists, `insert()` sets it automatically
 - timestamps are generated in UTC using `Y-m-d H:i:s`
 - `insert(false)` disables automatic timestamps
 - `insert(false, true)` allows you to include an explicit primary key value
@@ -225,7 +230,7 @@ $category->update();
 
 Update behavior:
 
-- `updated_at` is refreshed automatically when that column exists
+- the configured updated timestamp column is refreshed automatically when it exists
 - `update(false)` disables automatic timestamp updates
 - only dirty known fields are included in the SQL `SET` clause
 - `update()` returns `false` when there is nothing dirty to write
@@ -495,16 +500,85 @@ Serialisation is supported:
 - `serialize()` and `unserialize()` preserve values
 - dirty state is preserved across serialisation round-trips
 
+## Transactions
+
+Use `transaction()` when several writes should succeed or fail together:
+
+```php
+Category::transaction(function (): void {
+    $first = new Category(['name' => 'Sci-Fi']);
+    $first->save();
+
+    $second = new Category(['name' => 'Fantasy']);
+    $second->save();
+});
+```
+
+What it does:
+
+- starts and commits a transaction when none is active
+- rolls back automatically if the callback throws
+- reuses an existing outer transaction instead of nesting another one
+
+If you need manual control, the model also exposes `beginTransaction()`, `commit()`, and `rollBack()`.
+
 ## Timestamp behavior
 
-Automatic timestamp handling is convention-based:
+Automatic timestamp handling is configurable:
 
-- `created_at` is filled on insert when the column exists
-- `updated_at` is filled on insert and update when the column exists
+- `created_at` is filled on insert by default when that column exists
+- `updated_at` is filled on insert and update by default when that column exists
 - timestamps are generated in UTC with `gmdate('Y-m-d H:i:s')`
 - models without those columns save normally
+- set `protected static bool $_auto_timestamps = false;` to disable the feature for a model
+- set `protected static ?string $_created_at_column` or `$_updated_at_column` to use custom column names
 
-If you need custom timestamp columns, that is currently outside the built-in feature set.
+Example:
+
+```php
+class AuditLog extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'audit_logs';
+    protected static ?string $_created_at_column = 'created_on';
+    protected static ?string $_updated_at_column = 'modified_on';
+}
+```
+
+## Attribute casting
+
+Use `$_casts` to normalise fields to PHP types on assignment and when rows are loaded from the database:
+
+```php
+class Product extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'products';
+
+    protected static array $_casts = [
+        'stock' => 'integer',
+        'price' => 'float',
+        'is_active' => 'boolean',
+        'published_at' => 'datetime',
+        'tags' => 'array',
+        'settings' => 'object',
+    ];
+}
+```
+
+Supported cast types:
+
+- `integer`
+- `float`
+- `boolean`
+- `datetime`
+- `array`
+- `object`
+
+Notes:
+
+- `datetime` returns `DateTimeImmutable`
+- `array` and `object` are stored as JSON strings in the database
+- `toArray()` returns the current cast PHP values
+- `datetime` assumes stored strings are UTC wall-time values; prefer `DATETIME`-style columns or a UTC session timezone when using databases that convert `TIMESTAMP`
 
 ## Exceptions
 

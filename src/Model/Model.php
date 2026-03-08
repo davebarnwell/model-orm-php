@@ -37,6 +37,8 @@ use Freshsauce\Model\Exception\UnknownFieldException;
  * @property string|null $updated_at optional datetime in table that will automatically get updated on insert/update
  *
  * @package Freshsauce\Model
+ *
+ * @phpstan-consistent-constructor
  */
 class Model
 {
@@ -91,6 +93,26 @@ class Model
     protected static bool $_strict_fields = false;
 
     /**
+     * @var bool whether built-in automatic timestamp handling is enabled
+     */
+    protected static bool $_auto_timestamps = true;
+
+    /**
+     * @var string|null column name to auto-populate on insert, or null to disable
+     */
+    protected static ?string $_created_at_column = 'created_at';
+
+    /**
+     * @var string|null column name to auto-populate on insert/update, or null to disable
+     */
+    protected static ?string $_updated_at_column = 'updated_at';
+
+    /**
+     * @var array<string, string> field cast map
+     */
+    protected static array $_casts = [];
+
+    /**
      * Model constructor.
      *
      * @param array $data
@@ -141,14 +163,7 @@ class Model
      */
     public function __set(string $name, mixed $value): void
     {
-        if (static::strictFieldsEnabled()) {
-            $name = static::resolveFieldName($name);
-        }
-        if (!$this->hasData()) {
-            $this->data = new \stdClass();
-        }
-        $this->data->$name = $value;
-        $this->markFieldDirty($name);
+        $this->assignAttribute($name, $value);
     }
 
     /**
@@ -443,10 +458,10 @@ class Model
     public function hydrate(array $data): void
     {
         foreach (static::getFieldnames() as $fieldname) {
-            if (isset($data[$fieldname])) {
-                $this->$fieldname = $data[$fieldname];
+            if (array_key_exists($fieldname, $data)) {
+                $this->assignAttribute($fieldname, $data[$fieldname]);
             } elseif (!isset($this->$fieldname)) { // PDO pre populates fields before calling the constructor, so dont null unless not set
-                $this->$fieldname = null;
+                $this->assignAttribute($fieldname, null);
             }
         }
     }
@@ -966,7 +981,6 @@ class Model
      */
     protected static function fetchWhereWithSuffix(string $SQLfragment = '', array $params = [], bool $limitOne = false, string $suffix = ''): array|static|null
     {
-        $class       = get_called_class();
         $SQLfragment = self::addWherePrefix($SQLfragment);
         $st          = static::execute(
             'SELECT * FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . $suffix . ($limitOne ? ' LIMIT 1' : ''),
@@ -978,15 +992,17 @@ class Model
             if ($row === false) {
                 return null;
             }
-            $instance = new $class($row);
-            $instance->clearDirtyFields();
-            return $instance;
+            if (!is_array($row)) {
+                throw new ConfigurationException('Expected associative row data from PDO.');
+            }
+            return static::newInstanceFromDatabaseRow($row);
         }
         $results = [];
         while ($row = $st->fetch()) {
-            $instance = new $class($row);
-            $instance->clearDirtyFields();
-            $results[] = $instance;
+            if (!is_array($row)) {
+                throw new ConfigurationException('Expected associative row data from PDO.');
+            }
+            $results[] = static::newInstanceFromDatabaseRow($row);
         }
         return $results;
     }
@@ -1227,6 +1243,79 @@ class Model
     }
 
     /**
+     * Begin a transaction on the current model connection.
+     *
+     * @return bool
+     */
+    public static function beginTransaction(): bool
+    {
+        return static::requireDb()->beginTransaction();
+    }
+
+    /**
+     * Commit the current transaction on the model connection.
+     *
+     * @return bool
+     */
+    public static function commit(): bool
+    {
+        return static::requireDb()->commit();
+    }
+
+    /**
+     * Roll back the current transaction on the model connection.
+     *
+     * @return bool
+     */
+    public static function rollBack(): bool
+    {
+        return static::requireDb()->rollBack();
+    }
+
+    /**
+     * Run work inside a transaction, reusing any outer transaction when already active.
+     *
+     * @param callable $callback
+     *
+     * @return mixed
+     */
+    public static function transaction(callable $callback): mixed
+    {
+        $db = static::requireDb();
+        if ($db->inTransaction()) {
+            return $callback();
+        }
+
+        if (!$db->beginTransaction()) {
+            throw new \PDOException('Failed to start transaction.');
+        }
+
+        try {
+            $result = $callback();
+
+            if (!$db->commit()) {
+                try {
+                    $db->rollBack();
+                } catch (\Throwable) {
+                    // Ignore rollback failures when the transaction is already closed or rollback itself fails.
+                }
+
+                throw new \PDOException('Failed to commit transaction.');
+            }
+
+            return $result;
+        } catch (\Throwable $throwable) {
+            try {
+                $db->rollBack();
+            } catch (\Throwable) {
+                // Ignore rollback failures when the callback already closed the transaction or rollback itself fails.
+            }
+
+            throw $throwable;
+        }
+    }
+
+    /**
      * insert a row into the database table, and update the primary key field with the one generated on insert
      *
      * @param  boolean  $autoTimestamp  true by default will set updated_at & created_at fields if present
@@ -1240,12 +1329,7 @@ class Model
     {
         $pk      = static::$_primary_column_name;
         $timeStr = static::currentTimestamp();
-        if ($autoTimestamp && in_array('created_at', static::getFieldnames())) {
-            $this->created_at = $timeStr;
-        }
-        if ($autoTimestamp && in_array('updated_at', static::getFieldnames())) {
-            $this->updated_at = $timeStr;
-        }
+        $this->applyAutomaticInsertTimestamps($timeStr, $autoTimestamp);
         $this->runInsertValidation();
         if ($allowSetPrimaryKey !== true) {
             $this->$pk = null; // ensure id is null
@@ -1310,9 +1394,7 @@ class Model
      */
     public function update(bool $autoTimestamp = true): bool
     {
-        if ($autoTimestamp && in_array('updated_at', static::getFieldnames())) {
-            $this->updated_at = static::currentTimestamp();
-        }
+        $this->applyAutomaticUpdateTimestamp($autoTimestamp);
         $this->runUpdateValidation();
         $set             = $this->setString();
         if ($set['sql'] === '') {
@@ -1358,10 +1440,7 @@ class Model
      */
     protected static function _prepare(string $query): \PDOStatement
     {
-        $db = static::$_db;
-        if (!$db) {
-            throw new ConnectionException('No database connection setup');
-        }
+        $db = static::requireDb();
         $connectionId = spl_object_id($db);
         if (!isset(static::$_stmt[$connectionId])) {
             static::$_stmt[$connectionId] = array();
@@ -1516,7 +1595,8 @@ class Model
                 continue;
             }
             $columns[] = static::_quote_identifier($field);
-            if ($this->$field === null) {
+            $value = $this->prepareAttributeForDatabase($field, $this->$field);
+            if ($value === null) {
                 // if empty set to NULL
                 $fragments[] = static::_quote_identifier($field) . ' = NULL';
                 $values[] = 'NULL';
@@ -1524,7 +1604,7 @@ class Model
                 // Just set value normally as not empty string with NULL allowed
                 $fragments[] = static::_quote_identifier($field) . ' = ?';
                 $values[] = '?';
-                $params[]    = $this->$field;
+                $params[]    = $value;
             }
         }
         $sqlFragment = implode(", ", $fragments);
@@ -1558,6 +1638,428 @@ class Model
     {
         $driver = static::getDriverName();
         return ($driver === 'mysql');
+    }
+
+    /**
+     * Hydrate a model instance from a database row and clear dirty tracking.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return static
+     */
+    protected static function newInstanceFromDatabaseRow(array $row): static
+    {
+        $reflection = new \ReflectionClass(static::class);
+        /** @var static $instance */
+        $instance = $reflection->newInstanceWithoutConstructor();
+        $instance->clearDirtyFields();
+        $instance->hydrateFromDatabase($row);
+
+        return $instance;
+    }
+
+    /**
+     * Hydrate known fields from database results so casts are applied on read.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return void
+     */
+    protected function hydrateFromDatabase(array $data): void
+    {
+        foreach (static::getFieldnames() as $fieldname) {
+            if (array_key_exists($fieldname, $data)) {
+                $this->assignAttribute($fieldname, $data[$fieldname], false, true);
+            } elseif (!isset($this->$fieldname)) {
+                $this->assignAttribute($fieldname, null, false, true);
+            }
+        }
+    }
+
+    /**
+     * Assign a value to the model, optionally treating it as database input.
+     *
+     * @param string $name
+     * @param mixed $value
+     * @param bool $markDirty
+     * @param bool $fromDatabase
+     *
+     * @return void
+     */
+    protected function assignAttribute(string $name, mixed $value, bool $markDirty = true, bool $fromDatabase = false): void
+    {
+        if (static::strictFieldsEnabled()) {
+            $name = static::resolveFieldName($name);
+        }
+        if (!$this->hasData()) {
+            $this->data = new \stdClass();
+        }
+        $this->data->$name = $fromDatabase
+            ? $this->castAttributeFromDatabase($name, $value)
+            : $this->castAttributeForAssignment($name, $value);
+        if ($markDirty) {
+            $this->markFieldDirty($name);
+        }
+    }
+
+    /**
+     * @return \PDO
+     */
+    protected static function requireDb(): \PDO
+    {
+        $db = static::$_db;
+        if (!$db instanceof \PDO) {
+            throw new ConnectionException('No database connection setup');
+        }
+
+        return $db;
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    protected function castAttributeForAssignment(string $field, mixed $value): mixed
+    {
+        return $this->castAttributeValue($field, $value, false);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    protected function castAttributeFromDatabase(string $field, mixed $value): mixed
+    {
+        return $this->castAttributeValue($field, $value, true);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     * @param bool $fromDatabase
+     *
+     * @return mixed
+     */
+    protected function castAttributeValue(string $field, mixed $value, bool $fromDatabase): mixed
+    {
+        $castType = static::normaliseCastType(static::$_casts[$field] ?? null);
+        if ($castType === null || $value === null) {
+            return $value;
+        }
+
+        return match ($castType) {
+            'integer' => $this->castIntegerValue($field, $value),
+            'float' => $this->castFloatValue($field, $value),
+            'boolean' => $this->castBooleanValue($value),
+            'datetime' => $this->castDateTimeValue($field, $value),
+            'array' => $this->castArrayValue($field, $value, $fromDatabase),
+            'object' => $this->castObjectValue($field, $value, $fromDatabase),
+            default => $value,
+        };
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    protected function prepareAttributeForDatabase(string $field, mixed $value): mixed
+    {
+        $castType = static::normaliseCastType(static::$_casts[$field] ?? null);
+        if ($castType === null || $value === null) {
+            return $value;
+        }
+
+        return match ($castType) {
+            'datetime' => $this->formatDateTimeValue($field, $value),
+            'array', 'object' => $this->encodeJsonValue($field, $value),
+            default => $value,
+        };
+    }
+
+    /**
+     * @param string|null $castType
+     *
+     * @return string|null
+     */
+    protected static function normaliseCastType(?string $castType): ?string
+    {
+        return match ($castType) {
+            null => null,
+            'int', 'integer' => 'integer',
+            'float', 'double', 'real' => 'float',
+            'bool', 'boolean' => 'boolean',
+            'datetime' => 'datetime',
+            'array', 'json', 'json_array' => 'array',
+            'object', 'json_object' => 'object',
+            default => throw new ConfigurationException('Unsupported cast type [' . $castType . '] for model ' . static::class),
+        };
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    protected function castBooleanValue(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return $value != 0;
+        }
+        if (is_string($value)) {
+            $normalised = strtolower(trim($value));
+            if (in_array($normalised, ['1', 'true', 't', 'yes', 'y', 'on'], true)) {
+                return true;
+            }
+            if (in_array($normalised, ['0', 'false', 'f', 'no', 'n', 'off', ''], true)) {
+                return false;
+            }
+        }
+
+        return (bool) $value;
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return int
+     */
+    protected function castIntegerValue(string $field, mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value) || is_float($value) || is_bool($value)) {
+            return (int) $value;
+        }
+
+        throw new ModelException('Unable to cast [' . $field . '] to integer for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return float
+     */
+    protected function castFloatValue(string $field, mixed $value): float
+    {
+        if (is_float($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_string($value) || is_bool($value)) {
+            return (float) $value;
+        }
+
+        throw new ModelException('Unable to cast [' . $field . '] to float for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return \DateTimeImmutable
+     */
+    protected function castDateTimeValue(string $field, mixed $value): \DateTimeImmutable
+    {
+        if ($value instanceof \DateTimeImmutable) {
+            return $value;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return \DateTimeImmutable::createFromInterface($value);
+        }
+        if (is_int($value)) {
+            return (new \DateTimeImmutable('@' . $value))->setTimezone(new \DateTimeZone('UTC'));
+        }
+        if (is_string($value)) {
+            return new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
+        }
+
+        throw new ModelException('Unable to cast [' . $field . '] to datetime for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return string
+     */
+    protected function formatDateTimeValue(string $field, mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        throw new ModelException('Unable to format [' . $field . '] datetime value for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     * @param bool $fromDatabase
+     *
+     * @return array<mixed>
+     */
+    protected function castArrayValue(string $field, mixed $value, bool $fromDatabase): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if ($value instanceof \stdClass) {
+            return get_object_vars($value);
+        }
+        if (is_string($value)) {
+            $decoded = $this->decodeJsonValue($field, $value, true);
+            if (!is_array($decoded)) {
+                throw new ModelException('Expected JSON array for [' . $field . '] on model ' . static::class);
+            }
+
+            return $decoded;
+        }
+        if (!$fromDatabase && is_object($value)) {
+            return get_object_vars($value);
+        }
+
+        throw new ModelException('Unable to cast [' . $field . '] to array for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     * @param bool $fromDatabase
+     *
+     * @return object
+     */
+    protected function castObjectValue(string $field, mixed $value, bool $fromDatabase): object
+    {
+        if (is_object($value)) {
+            return $value;
+        }
+        if (is_array($value)) {
+            return (object) $value;
+        }
+        if (is_string($value)) {
+            $decoded = $this->decodeJsonValue($field, $value, false);
+            if (!is_object($decoded)) {
+                throw new ModelException('Expected JSON object for [' . $field . '] on model ' . static::class);
+            }
+
+            return $decoded;
+        }
+
+        throw new ModelException('Unable to cast [' . $field . '] to object for model ' . static::class);
+    }
+
+    /**
+     * @param string $field
+     * @param string $value
+     * @param bool $assoc
+     *
+     * @return mixed
+     */
+    protected function decodeJsonValue(string $field, string $value, bool $assoc): mixed
+    {
+        try {
+            return json_decode($value, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new ModelException(
+                'Unable to decode JSON for [' . $field . '] on model ' . static::class . ': ' . $exception->getMessage(),
+                0,
+                $exception
+            );
+        }
+    }
+
+    /**
+     * @param string $field
+     * @param mixed $value
+     *
+     * @return string
+     */
+    protected function encodeJsonValue(string $field, mixed $value): string
+    {
+        try {
+            return json_encode($value, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new ModelException(
+                'Unable to encode JSON for [' . $field . '] on model ' . static::class . ': ' . $exception->getMessage(),
+                0,
+                $exception
+            );
+        }
+    }
+
+    /**
+     * @param string $timestamp
+     * @param bool $autoTimestamp
+     *
+     * @return void
+     */
+    protected function applyAutomaticInsertTimestamps(string $timestamp, bool $autoTimestamp): void
+    {
+        if (!$autoTimestamp || !static::automaticTimestampsEnabled()) {
+            return;
+        }
+
+        $createdColumn = static::createdTimestampColumn();
+        if ($createdColumn !== null && in_array($createdColumn, static::getFieldnames(), true)) {
+            $this->$createdColumn = $timestamp;
+        }
+
+        $updatedColumn = static::updatedTimestampColumn();
+        if ($updatedColumn !== null && in_array($updatedColumn, static::getFieldnames(), true)) {
+            $this->$updatedColumn = $timestamp;
+        }
+    }
+
+    /**
+     * @param bool $autoTimestamp
+     *
+     * @return void
+     */
+    protected function applyAutomaticUpdateTimestamp(bool $autoTimestamp): void
+    {
+        if (!$autoTimestamp || !static::automaticTimestampsEnabled()) {
+            return;
+        }
+
+        $updatedColumn = static::updatedTimestampColumn();
+        if ($updatedColumn !== null && in_array($updatedColumn, static::getFieldnames(), true)) {
+            $this->$updatedColumn = static::currentTimestamp();
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    protected static function automaticTimestampsEnabled(): bool
+    {
+        return static::$_auto_timestamps;
+    }
+
+    /**
+     * @return string|null
+     */
+    protected static function createdTimestampColumn(): ?string
+    {
+        return static::$_created_at_column;
+    }
+
+    /**
+     * @return string|null
+     */
+    protected static function updatedTimestampColumn(): ?string
+    {
+        return static::$_updated_at_column;
     }
 
     /**
