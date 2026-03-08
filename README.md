@@ -8,6 +8,16 @@ Model ORM for PHP
 
 If you want database-backed PHP models without pulling in a heavyweight stack, this library is built for that job.
 
+## When it fits
+
+Use this library when you want:
+
+- Active-record style models without adopting a full framework ORM
+- Direct access to SQL and PDO when convenience helpers stop helping
+- A small API surface that stays easy to understand in legacy or custom PHP apps
+
+Skip it if you need relationship graphs, migrations, or a chainable query builder comparable to framework ORMs.
+
 ## Why teams pick it
 
 - Lightweight by design: point a model at a table and start reading and writing records.
@@ -110,6 +120,22 @@ Category::countByName('Science Fiction');
 
 Legacy snake_case dynamic methods still work during the transition, but they are deprecated and emit `E_USER_DEPRECATED` notices.
 
+If you still have legacy calls such as `find_by_name()`, treat them as migration work rather than the preferred API.
+
+### Focused query helpers
+
+For common read patterns that do not justify raw SQL:
+
+```php
+Category::exists();
+Category::existsWhere('name = ?', ['Science Fiction']);
+
+$ordered = Category::fetchAllWhereOrderedBy('name', 'ASC');
+$latest = Category::fetchOneWhereOrderedBy('id', 'DESC');
+
+$names = Category::pluck('name', '', [], 'name', 'ASC', 10);
+```
+
 ### Flexible SQL when convenience methods stop helping
 
 Use targeted where clauses:
@@ -133,21 +159,39 @@ $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
 ### Validation hooks
 
-Override `validate()` in your model when writes need application rules:
+Use instance-aware hooks when writes need application rules:
 
 ```php
 class Category extends Freshsauce\Model\Model
 {
     protected static $_tableName = 'categories';
 
-    public static function validate()
+    protected function validateForSave(): void
     {
-        return true;
+        if (trim((string) $this->name) === '') {
+            throw new RuntimeException('Name is required');
+        }
     }
 }
 ```
 
-Throw an exception from `validate()` to block invalid inserts or updates.
+Use `validateForInsert()` or `validateForUpdate()` when the rules differ by operation.
+
+The legacy static `validate()` method still works for backward compatibility, but new code should prefer the instance hooks.
+
+### Strict field mode
+
+Unknown properties are permissive by default for compatibility. If you want typo-safe writes, enable strict field mode:
+
+```php
+class Category extends Freshsauce\Model\Model
+{
+    protected static $_tableName = 'categories';
+    protected static bool $_strict_fields = true;
+}
+```
+
+You can also opt in at runtime with `Category::useStrictFields(true)`.
 
 ### Predictable exceptions
 

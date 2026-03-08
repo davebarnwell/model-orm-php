@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Freshsauce\Model\Exception\InvalidDynamicMethodException;
 use Freshsauce\Model\Exception\MissingDataException;
 use Freshsauce\Model\Exception\UnknownFieldException;
@@ -91,6 +93,10 @@ class CategoryTest extends TestCase
 
     public function setUp(): void
     {
+        App\Model\Category::useStrictFields(false);
+        App\Model\ValidatingCategory::$validationLog = [];
+        App\Model\LegacyValidatingCategory::$validateCalls = 0;
+
         if (self::$driverName === 'mysql') {
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `categories`');
         } elseif (self::$driverName === 'pgsql') {
@@ -314,6 +320,33 @@ class CategoryTest extends TestCase
         $this->assertSame(0, App\Model\Category::count());
     }
 
+    public function testFocusedQueryHelpers(): void
+    {
+        $this->assertFalse(App\Model\Category::exists());
+        $this->assertFalse(App\Model\Category::existsWhere('name = ?', ['Alpha']));
+
+        $this->createCategory('Alpha');
+        $this->createCategory('Gamma');
+        $this->createCategory('Beta');
+
+        $this->assertTrue(App\Model\Category::exists());
+        $this->assertTrue(App\Model\Category::existsWhere('name = ?', ['Alpha']));
+        $this->assertFalse(App\Model\Category::existsWhere('name = ?', ['Delta']));
+
+        $ordered = App\Model\Category::fetchAllWhereOrderedBy('name', 'DESC');
+        $this->assertSame(['Gamma', 'Beta', 'Alpha'], array_map(
+            static fn (App\Model\Category $category): ?string => $category->name,
+            $ordered
+        ));
+
+        $top = App\Model\Category::fetchOneWhereOrderedBy('name', 'DESC');
+        $this->assertNotNull($top);
+        $this->assertSame('Gamma', $top->name);
+
+        $names = App\Model\Category::pluck('name', '', [], 'name', 'ASC', 2);
+        $this->assertSame(['Alpha', 'Beta'], $names);
+    }
+
     public function testDynamicFindersCamelCase(): void
     {
         $_names = [
@@ -444,6 +477,84 @@ class CategoryTest extends TestCase
         $this->assertSame(0, App\Model\Category::countByName([]));
         $this->assertSame([], App\Model\Category::fetchAllWhereMatchingSingleField('name', []));
         $this->assertNull(App\Model\Category::fetchOneWhereMatchingSingleField('name', [], 'ASC'));
+    }
+
+    public function testInstanceValidationHooksCanInspectCurrentState(): void
+    {
+        $category = new App\Model\ValidatingCategory([
+            'name' => 'Validated insert',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertSame(
+            ['save:Validated insert', 'insert:Validated insert'],
+            App\Model\ValidatingCategory::$validationLog
+        );
+
+        App\Model\ValidatingCategory::$validationLog = [];
+        $category->name = 'Validated update';
+        $this->assertTrue($category->save());
+        $this->assertSame(
+            ['save:Validated update', 'update:Validated update'],
+            App\Model\ValidatingCategory::$validationLog
+        );
+    }
+
+    public function testInstanceValidationHooksCanRejectWrites(): void
+    {
+        $category = new App\Model\ValidatingCategory([
+            'name' => '   ',
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Name is required');
+        $category->save();
+    }
+
+    public function testLegacyStaticValidationRemainsSupported(): void
+    {
+        $category = new App\Model\LegacyValidatingCategory([
+            'name' => 'Legacy validation',
+        ]);
+
+        $this->assertTrue($category->save());
+        $category->name = 'Legacy validation updated';
+        $this->assertTrue($category->save());
+
+        $this->assertSame(2, App\Model\LegacyValidatingCategory::$validateCalls);
+    }
+
+    public function testStrictFieldModeRejectsUnknownFieldsWhenConfiguredPerModel(): void
+    {
+        $category = new App\Model\StrictCategory();
+
+        $this->expectException(UnknownFieldException::class);
+        $this->expectExceptionMessage('Unknown field [unknown_field] for model App\Model\StrictCategory');
+        $category->__set('unknown_field', 'nope');
+    }
+
+    public function testStrictFieldModeCanBeEnabledAtRuntime(): void
+    {
+        App\Model\Category::useStrictFields(true);
+
+        try {
+            $category = new App\Model\Category();
+
+            $this->expectException(UnknownFieldException::class);
+            $this->expectExceptionMessage('Unknown field [unknown_field] for model App\Model\Category');
+            $category->__set('unknown_field', 'nope');
+        } finally {
+            App\Model\Category::useStrictFields(false);
+        }
+    }
+
+    public function testStrictFieldModeStillAllowsRealFields(): void
+    {
+        $category = new App\Model\StrictCategory();
+        $category->__set('updatedAt', '2026-03-08 12:00:00');
+
+        $this->assertSame('2026-03-08 12:00:00', $category->updated_at);
+        $this->assertTrue($category->isFieldDirty('updated_at'));
     }
 
     private function captureUserDeprecation(string $expectedMessage, callable $callback): mixed

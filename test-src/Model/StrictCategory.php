@@ -10,9 +10,9 @@ namespace App\Model;
  * @property string|null $updated_at
  * @property string|null $created_at
  */
-class SqliteCategory extends \Freshsauce\Model\Model
+class StrictCategory extends \Freshsauce\Model\Model
 {
-    public static $_db;
-
     protected static $_tableName = 'categories';
+
+    protected static bool $_strict_fields = true;
 }
