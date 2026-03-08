@@ -848,14 +848,18 @@ class Model
      */
     public static function exists(): bool
     {
-        return static::count() > 0;
+        $st = static::execute(
+            'SELECT 1 FROM ' . static::_quote_identifier(static::$_tableName) . ' LIMIT 1'
+        );
+
+        return $st->fetchColumn(0) !== false;
     }
 
     /**
      * returns an integer count of matching rows
      *
      * @param string $SQLfragment conditions, grouping to apply (to right of WHERE keyword)
-     * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array  $params      optional params to be escaped and injected into the SQL query (standard PDO syntax)
      *
      * @return integer count of rows matching conditions
      */
@@ -876,7 +880,11 @@ class Model
      */
     public static function existsWhere(string $SQLfragment = '', array $params = []): bool
     {
-        return static::fetchOneWhere($SQLfragment, $params) !== null;
+        $SQLfragment = self::addWherePrefix($SQLfragment);
+        $sql         = 'SELECT 1 FROM ' . static::_quote_identifier(static::$_tableName) . $SQLfragment . ' LIMIT 1';
+        $st          = static::execute($sql, $params);
+
+        return $st->fetchColumn(0) !== false;
     }
 
     /**
@@ -941,7 +949,7 @@ class Model
      * returns an array of objects of the sub-class which match the conditions
      *
      * @param string $SQLfragment conditions, sorting, grouping and limit to apply (to right of WHERE keywords)
-     * @param array  $params      optional params to be escaped and injected into the SQL query (standrd PDO syntax)
+     * @param array  $params      optional params to be escaped and injected into the SQL query (standard PDO syntax)
      * @param bool   $limitOne    if true the first match will be returned
      *
      * @return array|static|null object[]|object of objects of calling class
@@ -1034,7 +1042,8 @@ class Model
         string $SQLfragment = '',
         array $params = [],
         ?int $limit = null
-    ): array {
+    ): array
+    {
         $suffix = static::buildOrderAndLimitClause($orderByField, $direction, $limit);
 
         /** @var array<int, static> $results */
@@ -1057,7 +1066,8 @@ class Model
         string $direction = 'ASC',
         string $SQLfragment = '',
         array $params = []
-    ): ?static {
+    ): ?static
+    {
         /** @var static|null $result */
         $result = static::fetchWhereWithSuffix(
             $SQLfragment,
@@ -1088,7 +1098,8 @@ class Model
         ?string $orderByField = null,
         string $direction = 'ASC',
         ?int $limit = null
-    ): array {
+    ): array
+    {
         $query = 'SELECT ' . static::_quote_identifier(static::resolveFieldName($fieldname)) .
             ' FROM ' . static::_quote_identifier(static::$_tableName) .
             static::addWherePrefix($SQLfragment) .
