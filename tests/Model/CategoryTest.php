@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 class CategoryTest extends TestCase
 {
     private const TEST_DB_NAME = 'categorytest';
+    private const PGSQL_SCHEMA = 'orm_phase3';
     private const SQLITE_SEQUENCE_TABLE = 'sqlite_sequence';
     private static ?string $driverName = null;
 
@@ -48,15 +49,51 @@ class CategoryTest extends TestCase
                  `created_at` TIMESTAMP NULL DEFAULT NULL,
                  PRIMARY KEY (`id`)
                ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
+                'CREATE TABLE `coded_categories` (
+                 `code` INT(11) UNSIGNED NOT NULL,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 PRIMARY KEY (`code`)
+               ) ENGINE=InnoDB DEFAULT CHARSET=utf8',
+                'CREATE TABLE `metadata_refresh_categories` (
+                 `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 PRIMARY KEY (`id`)
+               ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
+                'CREATE TABLE `untimed_categories` (
+                 `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+                 `name` VARCHAR(120) DEFAULT NULL,
+                 PRIMARY KEY (`id`)
+               ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8',
             ];
         } elseif (self::$driverName === 'pgsql') {
             $sql_setup = [
+                'DROP SCHEMA IF EXISTS "' . self::PGSQL_SCHEMA . '" CASCADE',
                 'DROP TABLE IF EXISTS "categories"',
                 'CREATE TABLE "categories" (
                  "id" SERIAL PRIMARY KEY,
                  "name" VARCHAR(120) NULL,
                  "updated_at" TIMESTAMP NULL,
                  "created_at" TIMESTAMP NULL
+               )',
+                'DROP TABLE IF EXISTS "coded_categories"',
+                'CREATE TABLE "coded_categories" (
+                 "code" INTEGER PRIMARY KEY,
+                 "name" VARCHAR(120) NULL
+               )',
+                'DROP TABLE IF EXISTS "metadata_refresh_categories"',
+                'CREATE TABLE "metadata_refresh_categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL
+               )',
+                'DROP TABLE IF EXISTS "untimed_categories"',
+                'CREATE TABLE "untimed_categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL
+               )',
+                'CREATE SCHEMA "' . self::PGSQL_SCHEMA . '"',
+                'CREATE TABLE "' . self::PGSQL_SCHEMA . '"."schema_categories" (
+                 "id" SERIAL PRIMARY KEY,
+                 "name" VARCHAR(120) NULL
                )',
             ];
         } elseif (self::$driverName === 'sqlite') {
@@ -67,6 +104,21 @@ class CategoryTest extends TestCase
                  `name` VARCHAR(120) NULL,
                  `updated_at` TEXT NULL,
                  `created_at` TEXT NULL
+               )',
+                'DROP TABLE IF EXISTS `coded_categories`',
+                'CREATE TABLE `coded_categories` (
+                 `code` INTEGER PRIMARY KEY,
+                 `name` VARCHAR(120) NULL
+               )',
+                'DROP TABLE IF EXISTS `metadata_refresh_categories`',
+                'CREATE TABLE `metadata_refresh_categories` (
+                 `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                 `name` VARCHAR(120) NULL
+               )',
+                'DROP TABLE IF EXISTS `untimed_categories`',
+                'CREATE TABLE `untimed_categories` (
+                 `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                 `name` VARCHAR(120) NULL
                )',
             ];
         } else {
@@ -87,7 +139,11 @@ class CategoryTest extends TestCase
         if (self::$driverName === 'mysql') {
             Freshsauce\Model\Model::execute('DROP DATABASE IF EXISTS `' . self::TEST_DB_NAME . '`');
         } elseif (self::$driverName === 'pgsql') {
+            Freshsauce\Model\Model::execute('DROP SCHEMA IF EXISTS "' . self::PGSQL_SCHEMA . '" CASCADE');
             Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "categories"');
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "coded_categories"');
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "metadata_refresh_categories"');
+            Freshsauce\Model\Model::execute('DROP TABLE IF EXISTS "untimed_categories"');
         }
     }
 
@@ -99,10 +155,20 @@ class CategoryTest extends TestCase
 
         if (self::$driverName === 'mysql') {
             Freshsauce\Model\Model::execute('TRUNCATE TABLE `categories`');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `coded_categories`');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `metadata_refresh_categories`');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE `untimed_categories`');
         } elseif (self::$driverName === 'pgsql') {
             Freshsauce\Model\Model::execute('TRUNCATE TABLE "categories" RESTART IDENTITY');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "coded_categories"');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "metadata_refresh_categories" RESTART IDENTITY');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "untimed_categories" RESTART IDENTITY');
+            Freshsauce\Model\Model::execute('TRUNCATE TABLE "' . self::PGSQL_SCHEMA . '"."schema_categories" RESTART IDENTITY');
         } elseif (self::$driverName === 'sqlite') {
             Freshsauce\Model\Model::execute('DELETE FROM `categories`');
+            Freshsauce\Model\Model::execute('DELETE FROM `coded_categories`');
+            Freshsauce\Model\Model::execute('DELETE FROM `metadata_refresh_categories`');
+            Freshsauce\Model\Model::execute('DELETE FROM `untimed_categories`');
             $this->resetSqliteSequenceIfPresent();
         }
     }
@@ -110,10 +176,12 @@ class CategoryTest extends TestCase
     private function resetSqliteSequenceIfPresent(): void
     {
         try {
-            Freshsauce\Model\Model::execute(
-                'DELETE FROM `' . self::SQLITE_SEQUENCE_TABLE . '` WHERE `name` = ?',
-                ['categories']
-            );
+            foreach (['categories', 'metadata_refresh_categories', 'untimed_categories'] as $tableName) {
+                Freshsauce\Model\Model::execute(
+                    'DELETE FROM `' . self::SQLITE_SEQUENCE_TABLE . '` WHERE `name` = ?',
+                    [$tableName]
+                );
+            }
         } catch (\PDOException $e) {
             if (strpos($e->getMessage(), 'no such table: ' . self::SQLITE_SEQUENCE_TABLE) === false) {
                 throw $e;
@@ -318,6 +386,126 @@ class CategoryTest extends TestCase
         $statement = App\Model\Category::deleteAllWhere('name = ?', ['Alpha']);
         $this->assertSame(1, $statement->rowCount());
         $this->assertSame(0, App\Model\Category::count());
+    }
+
+    public function testModelSubclassesCanShareTheInheritedConnection(): void
+    {
+        $category = $this->createCategory('Shared connection');
+
+        $reloaded = App\Model\LegacyValidatingCategory::getById((int) $category->id);
+
+        $this->assertNotNull($reloaded);
+        $this->assertInstanceOf(App\Model\LegacyValidatingCategory::class, $reloaded);
+        $this->assertSame('Shared connection', $reloaded->name);
+    }
+
+    public function testCustomPrimaryKeyLifecycleWorksAcrossDrivers(): void
+    {
+        $category = new App\Model\CodedCategory([
+            'code' => 42,
+            'name' => 'Meaning',
+        ]);
+
+        $this->assertTrue($category->insert(false, true));
+        $this->assertSame(42, (int) $category->code);
+
+        $reloaded = App\Model\CodedCategory::getById(42);
+        $this->assertNotNull($reloaded);
+        $this->assertSame('Meaning', $reloaded->name);
+
+        $reloaded->name = 'Updated meaning';
+        $this->assertTrue($reloaded->save());
+        $this->assertSame('Updated meaning', App\Model\CodedCategory::getById(42)?->name);
+    }
+
+    public function testMetadataRefreshAllowsNewColumnsWithoutReconnect(): void
+    {
+        $withoutRefresh = new App\Model\MetadataRefreshCategory([
+            'name' => 'Before refresh',
+            'description' => 'ignored until refresh',
+        ]);
+        $this->assertFalse(isset($withoutRefresh->description));
+
+        if (self::$driverName === 'mysql') {
+            Freshsauce\Model\Model::execute(
+                'ALTER TABLE `metadata_refresh_categories` ADD COLUMN `description` VARCHAR(120) NULL'
+            );
+        } elseif (self::$driverName === 'pgsql') {
+            Freshsauce\Model\Model::execute(
+                'ALTER TABLE "metadata_refresh_categories" ADD COLUMN "description" VARCHAR(120) NULL'
+            );
+        } elseif (self::$driverName === 'sqlite') {
+            Freshsauce\Model\Model::execute(
+                'ALTER TABLE `metadata_refresh_categories` ADD COLUMN `description` VARCHAR(120) NULL'
+            );
+        }
+
+        App\Model\MetadataRefreshCategory::refreshTableMetadata();
+
+        $withRefresh = new App\Model\MetadataRefreshCategory([
+            'name' => 'After refresh',
+            'description' => 'captured after refresh',
+        ]);
+        $this->assertSame('captured after refresh', $withRefresh->description);
+        $this->assertTrue($withRefresh->save());
+        $this->assertSame('captured after refresh', App\Model\MetadataRefreshCategory::getById((int) $withRefresh->id)?->description);
+    }
+
+    public function testSchemaQualifiedPostgresTablesWork(): void
+    {
+        if (self::$driverName !== 'pgsql') {
+            $this->markTestSkipped('Schema-qualified table coverage is PostgreSQL-specific.');
+        }
+
+        $category = new App\Model\SchemaQualifiedCategory([
+            'name' => 'Namespaced category',
+        ]);
+
+        $this->assertTrue($category->save());
+        $reloaded = App\Model\SchemaQualifiedCategory::getById((int) $category->id);
+
+        $this->assertNotNull($reloaded);
+        $this->assertSame('Namespaced category', $reloaded->name);
+    }
+
+    public function testInsertAndUpdateCanOptOutOfAutomaticTimestamps(): void
+    {
+        $category = new App\Model\Category([
+            'name' => 'No automatic timestamps',
+        ]);
+
+        $this->assertTrue($category->insert(false));
+        $this->assertNull($category->created_at);
+        $this->assertNull($category->updated_at);
+
+        $category->name = 'Still no automatic timestamps';
+        $this->assertTrue($category->update(false));
+        $this->assertNull($category->updated_at);
+
+        $reloaded = App\Model\Category::getById((int) $category->id);
+        $this->assertNotNull($reloaded);
+        $this->assertNull($reloaded->created_at);
+        $this->assertNull($reloaded->updated_at);
+    }
+
+    public function testModelsWithoutTimestampColumnsSaveNormally(): void
+    {
+        $category = new App\Model\UntimedCategory([
+            'name' => 'Untimed',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertNotNull($category->id);
+        $this->assertSame('Untimed', App\Model\UntimedCategory::getById((int) $category->id)?->name);
+    }
+
+    public function testUpdateTreatsExistingRowAsSuccessWhenDriverReportsZeroChangedRows(): void
+    {
+        $category = $this->createCategory('No-op update');
+        $category->name = 'No-op update';
+
+        $this->assertTrue($category->update(false));
+        $this->assertFalse($category->isFieldDirty('name'));
     }
 
     public function testFocusedQueryHelpers(): void
