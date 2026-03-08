@@ -1,5 +1,8 @@
 <?php
 
+use Freshsauce\Model\Exception\InvalidDynamicMethodException;
+use Freshsauce\Model\Exception\MissingDataException;
+use Freshsauce\Model\Exception\UnknownFieldException;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -236,11 +239,26 @@ class CategoryTest extends TestCase
 
         $data = $category->toArray();
         $this->assertSame('History', $data['name']);
-        $this->assertSame(['id', 'name', 'updated_at', 'created_at'], $category->__sleep());
+        $this->assertSame(['data', 'dirty'], $category->__sleep());
 
         $category->clear();
         $this->assertNull($category->name);
         $this->assertFalse($category->isFieldDirty('name'));
+    }
+
+    public function testSerializationRoundTripPreservesValuesAndDirtyState(): void
+    {
+        $category = new App\Model\Category([
+            'name' => 'Serialized category',
+        ]);
+        $category->clearDirtyFields();
+        $category->name = 'Serialized category updated';
+
+        $restored = unserialize(serialize($category));
+
+        $this->assertInstanceOf(App\Model\Category::class, $restored);
+        $this->assertSame('Serialized category updated', $restored->name);
+        $this->assertTrue($restored->isFieldDirty('name'));
     }
 
     public function testMagicGetThrowsForMissingDataAndUnknownField(): void
@@ -254,13 +272,13 @@ class CategoryTest extends TestCase
         try {
             $categoryWithoutConstructor->dataPresent();
             $this->fail('Expected missing data exception.');
-        } catch (Exception $exception) {
+        } catch (MissingDataException $exception) {
             $this->assertSame('No data', $exception->getMessage());
         }
 
         $category = new App\Model\Category();
 
-        $this->expectException(Exception::class);
+        $this->expectException(UnknownFieldException::class);
         $this->expectExceptionMessage('Undefined property via __get(): unknown_field');
         $category->__get('unknown_field');
     }
@@ -401,10 +419,31 @@ class CategoryTest extends TestCase
 
     public function testUnknownDynamicMethodThrows(): void
     {
-        $this->expectException(Exception::class);
+        $this->expectException(InvalidDynamicMethodException::class);
         $this->expectExceptionMessage('Freshsauce\Model\Model not such static method[doesNotExist]');
 
         App\Model\Category::__callStatic('doesNotExist', ['value']);
+    }
+
+    public function testDynamicFindersRejectUnknownFieldsBeforeRunningSql(): void
+    {
+        $this->expectException(UnknownFieldException::class);
+        $this->expectExceptionMessage('Unknown field [DoesNotExist] for model App\Model\Category');
+
+        App\Model\Category::__callStatic('findByDoesNotExist', ['value']);
+    }
+
+    public function testDynamicFindersHandleEmptyMatchArrays(): void
+    {
+        $this->createCategory('Empty array control');
+
+        $this->assertSame([], App\Model\Category::findByName([]));
+        $this->assertNull(App\Model\Category::findOneByName([]));
+        $this->assertNull(App\Model\Category::firstByName([]));
+        $this->assertNull(App\Model\Category::lastByName([]));
+        $this->assertSame(0, App\Model\Category::countByName([]));
+        $this->assertSame([], App\Model\Category::fetchAllWhereMatchingSingleField('name', []));
+        $this->assertNull(App\Model\Category::fetchOneWhereMatchingSingleField('name', [], 'ASC'));
     }
 
     private function captureUserDeprecation(string $expectedMessage, callable $callback): mixed

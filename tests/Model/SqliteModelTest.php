@@ -20,11 +20,27 @@ class SqliteModelTest extends TestCase
                 created_at TEXT NULL
             )'
         );
+        App\Model\SqliteCodeCategory::connectDb('sqlite::memory:', '', '');
+        App\Model\SqliteCodeCategory::execute(
+            'CREATE TABLE code_categories (
+                code INTEGER PRIMARY KEY,
+                name TEXT NULL
+            )'
+        );
+        App\Model\SqliteStringCodeCategory::connectDb('sqlite::memory:', '', '');
+        App\Model\SqliteStringCodeCategory::execute(
+            'CREATE TABLE string_code_categories (
+                code TEXT PRIMARY KEY,
+                name TEXT NULL
+            )'
+        );
     }
 
     protected function setUp(): void
     {
         App\Model\SqliteCategory::execute('DELETE FROM `categories`');
+        App\Model\SqliteCodeCategory::execute('DELETE FROM `code_categories`');
+        App\Model\SqliteStringCodeCategory::execute('DELETE FROM `string_code_categories`');
         $this->resetSqliteSequenceIfPresent();
     }
 
@@ -89,5 +105,39 @@ class SqliteModelTest extends TestCase
         $this->assertNotNull($fromB);
         $this->assertSame('from-a', $fromA->name);
         $this->assertSame('from-b', $fromB->name);
+    }
+
+    public function testSaveUpdatesWhenCustomIntegerPrimaryKeyIsZero(): void
+    {
+        App\Model\SqliteCodeCategory::execute(
+            'INSERT INTO code_categories (code, name) VALUES (?, ?)',
+            [0, 'before']
+        );
+
+        $category = new App\Model\SqliteCodeCategory([
+            'code' => 0,
+            'name' => 'after',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertSame(1, App\Model\SqliteCodeCategory::count());
+        $this->assertSame('after', App\Model\SqliteCodeCategory::fetchOneWhere('code = ?', [0])?->name);
+    }
+
+    public function testSaveUpdatesWhenCustomStringPrimaryKeyIsZeroLike(): void
+    {
+        App\Model\SqliteStringCodeCategory::execute(
+            'INSERT INTO string_code_categories (code, name) VALUES (?, ?)',
+            ['0', 'before']
+        );
+
+        $category = new App\Model\SqliteStringCodeCategory([
+            'code' => '0',
+            'name' => 'after',
+        ]);
+
+        $this->assertTrue($category->save());
+        $this->assertSame(1, App\Model\SqliteStringCodeCategory::count());
+        $this->assertSame('after', App\Model\SqliteStringCodeCategory::fetchOneWhere('code = ?', ['0'])?->name);
     }
 }
