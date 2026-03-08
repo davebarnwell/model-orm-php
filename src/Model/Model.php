@@ -109,7 +109,7 @@ class Model
 
 
     /**
-     * Returns true if data present else throws an Exception
+     * Returns true if data is present else throws MissingDataException
      *
      * @return bool
      * @throws MissingDataException
@@ -448,8 +448,6 @@ class Model
 
     /**
      * @return array
-     * @throws \PDOException
-     * @throws ModelException
      */
     public function __sleep()
     {
@@ -641,7 +639,7 @@ class Model
             'first' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'ASC'),
             'last' => static::fetchOneWhereMatchingSingleField($resolvedFieldname, $match, 'DESC'),
             'count' => static::countByField($resolvedFieldname, $match),
-            default => throw new \Exception(static::class . ' not such static method operation[' . $operation . ']'),
+            default => throw new InvalidDynamicMethodException(static::class . ' not such static method operation[' . $operation . ']'),
         };
     }
 
