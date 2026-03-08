@@ -2,6 +2,7 @@ Model ORM for PHP
 =================
 
 [![CI](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml/badge.svg)](https://github.com/davebarnwell/model-orm-php/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/davebarnwell/model-orm-php?display_name=tag)](https://github.com/davebarnwell/model-orm-php/releases)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 
 `Freshsauce\Model\Model` gives you the sweet spot between raw PDO and a full framework ORM: fast setup, familiar model-style workflows, and complete freedom to drop to SQL whenever you want.
